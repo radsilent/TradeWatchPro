@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Port, Disruption } from "@/api/entities";
-import { InvokeLLM } from "@/api/integrations";
+import { fetchRealTimeDisruptions, getTop200Ports } from "@/api/integrations";
 import GlobalMap from "../components/dashboard/GlobalMap";
 import MetricsPanel from "../components/dashboard/MetricsPanel";
 import ActiveAlerts from "../components/dashboard/ActiveAlerts";
@@ -43,32 +43,29 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     setIsLoading(true);
     try {
-      const [portsData, initialDisruptionsData] = await Promise.all([
-        Port.list('-strategic_importance', 150),
-        Disruption.list('-created_date', 50)
-      ]);
-      
-      setPorts(portsData);
-      setDisruptions(initialDisruptionsData);
+      // Load top 200 ports
+      const top200Ports = getTop200Ports();
+      setPorts(top200Ports);
 
-      // Generate recent data if we don't have enough for the 30-day trend
-      let finalDisruptionsData = initialDisruptionsData;
-      if (initialDisruptionsData.length < 10) {
-        await generateRecentDisruptionData();
-        // Reload after generating data
-        const updatedDisruptions = await Disruption.list('-created_date', 50);
-        setDisruptions(updatedDisruptions);
-        finalDisruptionsData = updatedDisruptions;
-      }
+      // Fetch real-time disruptions from news
+      const realTimeDisruptions = await fetchRealTimeDisruptions();
+      setDisruptions(realTimeDisruptions);
 
-      if (finalDisruptionsData.length > 0) {
-        const dates = finalDisruptionsData.map(d => safeParseDate(d.start_date)).filter(Boolean);
+      // Set date range for disruptions (past 30 days to 2030)
+      if (realTimeDisruptions.length > 0) {
+        const dates = realTimeDisruptions.map(d => safeParseDate(d.start_date)).filter(Boolean);
         if (dates.length > 0) {
           const minDate = min(dates);
           const maxDate = max(dates);
           setDateConfig({ min: minDate, max: maxDate });
           setSelectedDateRange([minDate, maxDate]);
         }
+      } else {
+        // Default date range if no disruptions
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        setDateConfig({ min: thirtyDaysAgo, max: now });
+        setSelectedDateRange([thirtyDaysAgo, now]);
       }
     } catch (error) {
       console.error("Error loading dashboard data:", error);
@@ -76,123 +73,14 @@ export default function Dashboard() {
     setIsLoading(false);
   };
 
-  const generateRecentDisruptionData = async () => {
-    try {
-      const result = await InvokeLLM({
-        prompt: `Generate realistic trade disruption events for the past 30 days with multiple news sources per event. For each disruption:
-        
-        1. Cross-validate with 2-3 different news sources
-        2. Calculate confidence score based on:
-           - Source credibility (Reuters=95, Bloomberg=90, BBC=85, Industry publications=75, Regional news=60)
-           - Source agreement (multiple sources reporting same event increases confidence)
-           - Specificity of details (specific dates, locations, impact figures)
-           - Historical precedent for similar events
-        
-        3. Combine multiple sources into single events when they report the same disruption
-        4. Include recent realistic events: port strikes, weather incidents, geopolitical tensions, cyber attacks
-        5. Provide specific dates within the last 30 days
-        6. Include economic impact estimates based on port importance and disruption duration`,
-        add_context_from_internet: true,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            disruptions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  title: { type: "string" },
-                  description: { type: "string" },
-                  type: { type: "string", enum: ["geopolitical", "weather", "infrastructure", "cyber", "economic", "environmental"] },
-                  severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
-                  affected_regions: { type: "array", items: { type: "string" } },
-                  economic_impact: { type: "number" },
-                  confidence_score: { type: "number" },
-                  source_url: { type: "string" },
-                  source_validation_status: { type: "string", enum: ["verified", "pending", "unverified"] },
-                  source_reliability_score: { type: "number" },
-                  event_date: { type: "string" },
-                  sources_cross_validated: { type: "number" },
-                  confidence_methodology: { type: "string" }
-                }
-              }
-            }
-          }
-        }
-      });
-
-      if (result?.disruptions) {
-        for (const disruptionData of result.disruptions.slice(0, 15)) {
-          await Disruption.create({
-            ...disruptionData,
-            start_date: disruptionData.event_date || new Date().toISOString(),
-            affected_ports: []
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error generating recent disruption data:", error);
-    }
-  };
-  
   const generateRealTimeAlerts = async () => {
-    setIsLoading(true);
     try {
-      const result = await InvokeLLM({
-        prompt: `Analyze current global events and forecast trade disruptions through 2030. For each event:
-        
-        CONFIDENCE SCORING METHODOLOGY:
-        - Source Credibility: Reuters/Bloomberg (90-95%), BBC/CNN (80-90%), Industry Publications (70-80%), Regional News (50-70%)
-        - Multiple Source Validation: +10-20% if 2+ sources confirm, +5% per additional source
-        - Specificity Bonus: +10% for specific dates/locations, +5% for quantified impacts
-        - Historical Precedent: +15% if similar events occurred before, -10% if unprecedented
-        - Geopolitical Context: +10% if fits current global situation
-        
-        Cross-validate each event with multiple sources and combine duplicate reports into single events.
-        Provide realistic dates (current or forecasted) and detailed economic impact analysis.`,
-        add_context_from_internet: true,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            disruptions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  title: { type: "string" },
-                  description: { type: "string" },
-                  type: { type: "string", enum: ["geopolitical", "weather", "infrastructure", "cyber", "economic", "environmental"] },
-                  severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
-                  affected_regions: { type: "array", items: { type: "string" } },
-                  economic_impact: { type: "number" },
-                  confidence_score: { type: "number" },
-                  source_url: { type: "string" },
-                  source_validation_status: { type: "string", enum: ["verified", "pending", "unverified"] },
-                  source_reliability_score: { type: "number" },
-                  forecast_date: { type: "string" },
-                  sources_validated: { type: "number" },
-                  confidence_factors: { type: "string" }
-                }
-              }
-            }
-          }
-        }
-      });
-
-      if (result?.disruptions) {
-        for (const disruptionData of result.disruptions.slice(0, 8)) {
-          await Disruption.create({
-            ...disruptionData,
-            start_date: disruptionData.forecast_date || new Date().toISOString(), 
-            affected_ports: []
-          });
-        }
-        loadDashboardData();
-      }
+      // Fetch latest real-time disruptions
+      const latestDisruptions = await fetchRealTimeDisruptions();
+      setDisruptions(latestDisruptions);
     } catch (error) {
-      console.error("Error generating alerts:", error);
+      console.error("Error generating real-time alerts:", error);
     }
-    setIsLoading(false);
   };
 
   const getPortsByStatus = () => {
@@ -234,16 +122,13 @@ export default function Dashboard() {
                 />
               </div>
               
-              {/* Confidence Methodology Info */}
+              {/* Real-time Data Info */}
               <div className="mt-4 p-4 bg-slate-700/30 rounded-lg border border-slate-600/30">
-                <h3 className="text-sm font-semibold text-slate-200 mb-2">Confidence Scoring Methodology</h3>
+                <h3 className="text-sm font-semibold text-slate-200 mb-2">Real-time News Integration</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Our AI cross-validates multiple news sources to generate confidence scores. Factors include: 
-                  <span className="text-slate-300"> Source credibility (Reuters/Bloomberg: 90-95%)</span>, 
-                  <span className="text-slate-300"> multiple source validation (+10-20%)</span>, 
-                  <span className="text-slate-300"> specificity of details (+10%)</span>, and 
-                  <span className="text-slate-300"> historical precedent (+15%)</span>. 
-                  Events with 80%+ confidence from verified sources are prioritized.
+                  Data sourced from real-time news APIs covering <span className="text-slate-300">200+ major ports worldwide</span> and 
+                  <span className="text-slate-300"> trade disruption events until 2030</span>. 
+                  News sources include Reuters, Bloomberg, BBC, and maritime industry publications.
                 </p>
               </div>
             </div>
@@ -282,13 +167,30 @@ export default function Dashboard() {
             selectedPort={selectedPort}
           />
           
-          {/* Placeholder for Live AIS */}
-          <div className="bg-slate-800/30 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700/50 p-6 text-slate-400 text-center">
-            <h3 className="text-xl font-semibold text-slate-100 mb-3">Live AIS Data</h3>
-            <p>Real-time vessel tracking and density maps will be available here.</p>
-            <p className="text-sm mt-2 text-slate-500">
-              <span role="img" aria-label="ship">🚢</span> Coming Soon!
-            </p>
+          {/* Real-time News Feed */}
+          <div className="bg-slate-800/30 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700/50 p-6">
+            <h3 className="text-xl font-semibold text-slate-100 mb-3">Live News Feed</h3>
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {disruptions.slice(0, 5).map((disruption, index) => (
+                <div key={index} className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/30">
+                  <h4 className="text-sm font-medium text-slate-200 mb-1">{disruption.title}</h4>
+                  <p className="text-xs text-slate-400 mb-2">{disruption.description}</p>
+                  <div className="flex justify-between items-center">
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      disruption.severity === 'critical' ? 'bg-red-500/20 text-red-300' :
+                      disruption.severity === 'high' ? 'bg-orange-500/20 text-orange-300' :
+                      disruption.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                      'bg-green-500/20 text-green-300'
+                    }`}>
+                      {disruption.severity}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {disruption.sources?.[0] || 'News Source'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
