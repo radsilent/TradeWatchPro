@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # TradeWatch App Startup Script
-echo "🚢 Starting TradeWatch App..."
+echo "🚢 Starting TradeWatch - Global Trade Intelligence Platform..."
 
 # Load nvm and use Node.js 20
 export NVM_DIR="$HOME/.nvm"
@@ -26,6 +26,9 @@ fi
 echo "🌐 Starting development server..."
 echo "📍 App will be available at: http://localhost:5173"
 echo "🛑 Press Ctrl+C to stop the server"
+echo ""
+echo "✅ TradeWatch is now running independently without Base44 dependencies!"
+echo "📊 Features: Global port monitoring, disruption tracking, real-time analytics"
 echo ""
 
 npm run dev
