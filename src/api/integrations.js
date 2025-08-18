@@ -1,7 +1,7 @@
 // API integrations for TradeWatch App
 
 // News API configuration
-const NEWS_API_KEY = process.env.VITE_NEWS_API_KEY || 'demo';
+const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY || 'demo';
 const NEWS_API_BASE_URL = 'https://newsapi.org/v2';
 
 // News API endpoints
