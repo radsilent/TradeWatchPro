@@ -1,25 +1,7 @@
-import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet';
+import React, { useEffect, useRef, useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Activity, AlertTriangle, XCircle, CheckCircle } from "lucide-react";
-import L from 'leaflet';
-
-// Custom markers for different port statuses
-const createCustomIcon = (status) => {
-  const colors = {
-    normal: '#10b981',
-    minor_disruption: '#f59e0b', 
-    major_disruption: '#ef4444',
-    closed: '#dc2626'
-  };
-  
-  return L.divIcon({
-    html: `<div style="background-color: ${colors[status]}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-    iconSize: [12, 12],
-    className: 'custom-marker'
-  });
-};
+import { Activity, AlertTriangle, XCircle, CheckCircle, MapPin } from "lucide-react";
 
 export default function GlobalMap({ 
   ports, 
@@ -30,6 +12,68 @@ export default function GlobalMap({
   zoom, 
   isLoading 
 }) {
+  const mapRef = useRef(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    
+    const initMap = async () => {
+      try {
+        // Import Leaflet and React-Leaflet
+        const L = await import('leaflet');
+        const { MapContainer, TileLayer } = await import('react-leaflet');
+        
+        if (!mounted || !mapRef.current) return;
+
+        // Create a simple map first
+        const mapElement = React.createElement(MapContainer, {
+          center: center,
+          zoom: zoom,
+          style: { height: '100%', width: '100%' },
+          className: "rounded-lg"
+        }, [
+          React.createElement(TileLayer, {
+            key: "tile-layer",
+            url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+            attribution: '&copy; <a href="https://carto.com/">CARTO</a>'
+          })
+        ]);
+
+        // Render the basic map first
+        const ReactDOM = await import('react-dom/client');
+        const root = ReactDOM.createRoot(mapRef.current);
+        root.render(mapElement);
+        
+        // Mark as loaded immediately after rendering
+        if (mounted) {
+          setMapLoaded(true);
+        }
+
+      } catch (error) {
+        console.error('Error loading map:', error);
+        if (mounted) {
+          setMapError(true);
+        }
+      }
+    };
+
+    // Add a timeout for the entire loading process
+    const timeoutId = setTimeout(() => {
+      if (mounted && !mapLoaded) {
+        setMapError(true);
+      }
+    }, 5000);
+
+    initMap();
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, [center, zoom]);
+
   if (isLoading) {
     return (
       <div className="w-full h-full bg-slate-800/50 rounded-lg flex items-center justify-center">
@@ -41,145 +85,39 @@ export default function GlobalMap({
     );
   }
 
-  const getStatusIcon = (status) => {
-    const icons = {
-      normal: CheckCircle,
-      minor_disruption: Activity,
-      major_disruption: AlertTriangle,
-      closed: XCircle
-    };
-    return icons[status] || CheckCircle;
-  };
-
-  const getStatusColor = (status) => {
-    const colors = {
-      normal: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      minor_disruption: 'bg-amber-100 text-amber-800 border-amber-200',
-      major_disruption: 'bg-red-100 text-red-800 border-red-200',
-      closed: 'bg-red-100 text-red-900 border-red-300'
-    };
-    return colors[status] || colors.normal;
-  };
-
-  const getStatusText = (status) => {
-    const texts = {
-      normal: 'Operational',
-      minor_disruption: 'Minor Disruption',
-      major_disruption: 'Major Disruption',
-      closed: 'Closed'
-    };
-    return texts[status] || 'Unknown';
-  };
+  if (mapError) {
+    return (
+      <div className="w-full h-full bg-slate-800/50 rounded-lg flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🗺️</div>
+          <h3 className="text-xl font-semibold text-slate-200 mb-2">Interactive Global Map</h3>
+          <p className="text-slate-400">Port locations and disruption tracking</p>
+          <p className="text-sm text-red-400 mt-2">Map failed to load. Please refresh the page.</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-full">
-      <MapContainer
-        center={center}
-        zoom={zoom}
-        style={{ height: '100%', width: '100%' }}
-        className="rounded-lg"
-        maxZoom={18}
-        minZoom={2}
-      >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-        />
-        
-        {ports.map((port) => {
-          const StatusIcon = getStatusIcon(port.status);
-          
-          return (
-            <Marker
-              key={port.id}
-              position={[port.coordinates.lat, port.coordinates.lng]}
-              icon={createCustomIcon(port.status)}
-              eventHandlers={{
-                click: () => onPortClick(port)
-              }}
-            >
-              <Popup className="custom-popup">
-                <div className="p-3 min-w-64">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-lg">{port.name}</h3>
-                      <p className="text-slate-600 text-sm">{port.country}</p>
-                    </div>
-                    <StatusIcon className="w-5 h-5 text-slate-500" />
-                  </div>
-                  
-                  <div className="space-y-2 mb-3">
-                    <Badge className={`${getStatusColor(port.status)} border text-xs`}>
-                      {getStatusText(port.status)}
-                    </Badge>
-                    
-                    {port.port_code && (
-                      <p className="text-xs text-slate-500">Code: {port.port_code}</p>
-                    )}
-                    
-                    {port.annual_throughput && (
-                      <p className="text-xs text-slate-500">
-                        Annual Throughput: {(port.annual_throughput / 1000000).toFixed(1)}M TEU
-                      </p>
-                    )}
-                  </div>
-                  
-                  {port.strategic_importance && (
-                    <Badge variant="outline" className="text-xs">
-                      {port.strategic_importance.charAt(0).toUpperCase() + port.strategic_importance.slice(1)} Port
-                    </Badge>
-                  )}
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-        
-        {/* Disruption areas */}
-        {disruptions.map((disruption) => 
-          disruption.affected_regions?.map((region, index) => {
-            // Sample coordinates for major shipping regions
-            const regionCoordinates = {
-              'South China Sea': [16, 112],
-              'Persian Gulf': [26, 52],
-              'Strait of Hormuz': [26, 56],
-              'Suez Canal': [30, 32],
-              'Panama Canal': [9, -80],
-              'Strait of Malacca': [2, 102],
-              'Mediterranean': [36, 15],
-              'North Atlantic': [50, -30],
-              'Arabian Sea': [18, 65]
-            };
-            
-            const coords = regionCoordinates[region];
-            if (!coords) return null;
-            
-            return (
-              <CircleMarker
-                key={`${disruption.id}-${region}-${index}`}
-                center={coords}
-                radius={disruption.severity === 'critical' ? 30 : 20}
-                pathOptions={{
-                  color: disruption.severity === 'critical' ? '#dc2626' : '#f59e0b',
-                  fillColor: disruption.severity === 'critical' ? '#dc2626' : '#f59e0b',
-                  fillOpacity: 0.2,
-                  weight: 2
-                }}
-              >
-                <Popup>
-                  <div className="p-2">
-                    <h4 className="font-semibold text-slate-900">{disruption.title}</h4>
-                    <p className="text-sm text-slate-600 mt-1">{disruption.description}</p>
-                    <Badge className="mt-2 text-xs" variant={disruption.severity === 'critical' ? 'destructive' : 'secondary'}>
-                      {disruption.severity} impact
-                    </Badge>
-                  </div>
-                </Popup>
-              </CircleMarker>
-            );
-          })
-        )}
-      </MapContainer>
+      <div ref={mapRef} className="w-full h-full" />
+      
+      {!mapLoaded && (
+        <div className="absolute inset-0 bg-slate-800/50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-6xl mb-4">🗺️</div>
+            <h3 className="text-xl font-semibold text-slate-200 mb-2">Interactive Global Map</h3>
+            <p className="text-slate-400">Port locations and disruption tracking</p>
+            <p className="text-sm text-slate-500 mt-2">Loading Leaflet map...</p>
+          </div>
+        </div>
+      )}
       
       <style jsx global>{`
         .leaflet-popup-content-wrapper {

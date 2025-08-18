@@ -258,6 +258,7 @@ export default function Dashboard() {
                 zoom={mapZoom}
                 isLoading={isLoading}
               />
+              
               <DateSlicer
                 minDate={dateConfig.min}
                 maxDate={dateConfig.max}
