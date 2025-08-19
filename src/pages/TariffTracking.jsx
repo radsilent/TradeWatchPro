@@ -486,7 +486,12 @@ export default function TariffTracking() {
   const totalTariffs = tariffs.length;
   const activeTariffs = tariffs.filter(t => t.status === 'Active').length;
   const avgTariffRate = tariffs.reduce((sum, t) => sum + t.currentRate, 0) / tariffs.length;
-  const totalTradeImpact = tariffs.reduce((sum, t) => sum + parseFloat(t.estimatedImpact.replace(/[$BM,]/g, '')), 0);
+  const totalTradeImpact = tariffs.reduce((sum, t) => {
+    if (!t.estimatedImpact) return sum;
+    const impactStr = typeof t.estimatedImpact === 'string' ? t.estimatedImpact : String(t.estimatedImpact);
+    const numericValue = parseFloat(impactStr.replace(/[$BM,]/g, ''));
+    return sum + (isNaN(numericValue) ? 0 : numericValue);
+  }, 0);
 
   if (isLoading) {
     return (
@@ -562,9 +567,9 @@ export default function TariffTracking() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Trade Impact</p>
-                <p className="text-3xl font-bold text-purple-600">${isNaN(totalTradeImpact) ? '0.0' : totalTradeImpact.toFixed(1)}B</p>
-                <p className="text-xs text-gray-500 mt-1">Estimated value</p>
+                <p className="text-sm font-medium text-gray-600">Active Tariff Measures</p>
+                <p className="text-3xl font-bold text-purple-600">{tariffs.filter(t => t.status === 'Active').length}</p>
+                <p className="text-xs text-gray-500 mt-1">Currently in effect</p>
               </div>
               <Globe className="h-12 w-12 text-purple-500" />
             </div>
@@ -705,7 +710,7 @@ export default function TariffTracking() {
 
                     {/* Impact */}
                     <div className="lg:col-span-2 text-center">
-                      <div className="text-lg font-semibold text-green-600">{tariff.estimatedImpact}</div>
+                      <div className="text-lg font-semibold text-green-600">{tariff.estimatedImpact || 'N/A'}</div>
                       <div className="text-xs text-gray-500">${typeof tariff.affectedTrade === 'number' ? tariff.affectedTrade.toFixed(1) : '0'}B trade</div>
                       <div className="text-xs text-gray-500">affected</div>
                     </div>

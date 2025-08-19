@@ -33,7 +33,7 @@ const safeFormatDate = (dateString, formatStr = "MMM d, yyyy") => {
   }
 };
 
-export default function ActiveAlerts({ disruptions, onGenerateAlerts, isLoading }) {
+export default function ActiveAlerts({ disruptions = [], onGenerateAlerts, isLoading }) {
   const getSeverityColor = (severity) => {
     const colors = {
       low: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -137,17 +137,40 @@ export default function ActiveAlerts({ disruptions, onGenerateAlerts, isLoading 
                   </div>
                 )}
 
-                {disruption.source_url && (
+                {/* Display source links from sources array or direct source_url */}
+                {((disruption.sources && disruption.sources.length > 0) || disruption.source_url) && (
                   <div className="pt-2 border-t border-slate-600/30">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
-                      onClick={() => window.open(disruption.source_url, '_blank')}
-                    >
-                      <ExternalLink className="w-3 h-3 mr-1" />
-                      View Source
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      {disruption.sources && disruption.sources.length > 0 ? (
+                        disruption.sources.slice(0, 2).map((source, index) => (
+                          <Button
+                            key={index}
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                            onClick={() => window.open(source.url, '_blank')}
+                          >
+                            <ExternalLink className="w-3 h-3 mr-1" />
+                            {source.name || 'News Source'}
+                          </Button>
+                        ))
+                      ) : disruption.source_url && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                          onClick={() => window.open(disruption.source_url, '_blank')}
+                        >
+                          <ExternalLink className="w-3 h-3 mr-1" />
+                          View Source
+                        </Button>
+                      )}
+                      {disruption.sources && disruption.sources.length > 2 && (
+                        <span className="text-xs text-slate-500 py-2">
+                          +{disruption.sources.length - 2} more sources
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

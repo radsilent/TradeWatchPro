@@ -308,16 +308,42 @@ export async function getRealTimeDisruptions() {
 export async function getRealTimePortData(limit = 200) {
   const cacheKey = 'realtime_ports';
   const cached = getCachedData(cacheKey);
-  if (cached) return cached.slice(0, limit);
+  // Force refresh to ensure new coordinate format
+  if (cached && cached.length > 0 && cached[0].coordinates?.lat) {
+    console.log('Using cached port data with proper coordinates');
+    return cached.slice(0, limit);
+  }
   
   console.log('Fetching real-time port data...');
   
   try {
     // Import the top 200 ports data
     const { generateTop200WorldPorts } = await import('./top200Ports.js');
-    const ports = generateTop200WorldPorts();
+    const rawPorts = generateTop200WorldPorts();
     
-    console.log(`Generated ${ports.length} world ports`);
+    // Transform port data to match expected format
+    const ports = rawPorts.map((port, index) => ({
+      id: `port_${port.code || index}`,
+      name: `Port of ${port.name}`,
+      country: port.country,
+      coordinates: { 
+        lat: port.coords[0], 
+        lng: port.coords[1] 
+      },
+      port_code: port.code,
+      region: port.region,
+      status: 'operational', // Default status
+      disruption_level: 'low',
+      strategic_importance: Math.max(1, Math.round(100 - (index * 0.5))), // Decreasing importance by rank
+      container_volume: port.teu ? `${(port.teu / 1000000).toFixed(1)}M TEU` : 'N/A',
+      annual_throughput: port.teu || 0,
+      teu: port.teu,
+      rank: index + 1,
+      lastUpdate: new Date().toISOString()
+    }));
+    
+    console.log(`Generated ${ports.length} world ports with proper coordinates`);
+    console.log('Sample transformed port:', ports[0]);
     setCachedData(cacheKey, ports);
     return ports.slice(0, limit);
   } catch (error) {
@@ -333,6 +359,19 @@ export async function getRealTimeVesselData() {
   const cacheKey = 'realtime_vessels';
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
+  
+  // Try to get vessels from maritime APIs first
+  try {
+    const { getVesselTrackingData } = await import('./maritimeAPIs.js');
+    const vessels = await getVesselTrackingData();
+    if (vessels && vessels.length > 0) {
+      console.log(`Got ${vessels.length} vessels from maritime APIs`);
+      setCachedData(cacheKey, vessels);
+      return vessels;
+    }
+  } catch (error) {
+    console.log('Maritime APIs not available, using fallback vessel data:', error);
+  }
   
   console.log('Fetching real-time vessel data...');
   
@@ -642,40 +681,89 @@ function generateCurrentDisruptions() {
   ];
 }
 
-// Static port data for fallback (top world ports with real coordinates)
-function getStaticPortData() {
+// Static port data for fallback (top world ports with proper coordinate format)
+export function getStaticPortData() {
   return [
     {
       id: 'port_shanghai',
       name: 'Port of Shanghai',
       country: 'China',
-      coordinates: [31.2304, 121.4737],
+      coordinates: { lat: 31.2304, lng: 121.4737 },
+      port_code: 'CNSHA',
+      region: 'Asia Pacific',
       teu: 47030000,
+      annual_throughput: 47030000,
       rank: 1,
       status: 'operational',
-      strategic_importance: 100
+      strategic_importance: 100,
+      disruption_level: 'low',
+      container_volume: '47.0M TEU',
+      lastUpdate: new Date().toISOString()
     },
     {
       id: 'port_singapore',
       name: 'Port of Singapore',
       country: 'Singapore', 
-      coordinates: [1.2644, 103.8391],
+      coordinates: { lat: 1.2644, lng: 103.8391 },
+      port_code: 'SGSIN',
+      region: 'Asia Pacific',
       teu: 37500000,
+      annual_throughput: 37500000,
       rank: 2,
       status: 'operational',
-      strategic_importance: 98
+      strategic_importance: 98,
+      disruption_level: 'low',
+      container_volume: '37.5M TEU',
+      lastUpdate: new Date().toISOString()
     },
     {
       id: 'port_rotterdam',
       name: 'Port of Rotterdam',
       country: 'Netherlands',
-      coordinates: [51.9244, 4.4777],
+      coordinates: { lat: 51.9244, lng: 4.4777 },
+      port_code: 'NLRTM',
+      region: 'Europe',
       teu: 15280000,
+      annual_throughput: 15280000,
       rank: 3,
       status: 'operational',
-      strategic_importance: 95
+      strategic_importance: 95,
+      disruption_level: 'low',
+      container_volume: '15.3M TEU',
+      lastUpdate: new Date().toISOString()
+    },
+    {
+      id: 'port_losangeles',
+      name: 'Port of Los Angeles',
+      country: 'United States',
+      coordinates: { lat: 33.7406, lng: -118.2484 },
+      port_code: 'USLAX',
+      region: 'North America',
+      teu: 10677000,
+      annual_throughput: 10677000,
+      rank: 4,
+      status: 'operational',
+      strategic_importance: 90,
+      disruption_level: 'low',
+      container_volume: '10.7M TEU',
+      lastUpdate: new Date().toISOString()
+    },
+    {
+      id: 'port_hamburg',
+      name: 'Port of Hamburg',
+      country: 'Germany',
+      coordinates: { lat: 53.5403, lng: 9.9847 },
+      port_code: 'DEHAM',
+      region: 'Europe',
+      teu: 8470000,
+      annual_throughput: 8470000,
+      rank: 5,
+      status: 'operational',
+      strategic_importance: 85,
+      disruption_level: 'low',
+      container_volume: '8.5M TEU',
+      lastUpdate: new Date().toISOString()
     }
-    // Add more ports as needed
   ];
 }
 

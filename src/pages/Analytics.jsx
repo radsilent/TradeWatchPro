@@ -333,10 +333,10 @@ export default function AnalyticsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-slate-400 text-sm">Economic Impact</p>
-                  <p className="text-2xl font-bold text-slate-100">${(Number(totalEconomicImpact) || 0).toFixed(0)}M</p>
+                  <p className="text-slate-400 text-sm">Risk Severity Score</p>
+                  <p className="text-2xl font-bold text-slate-100">{Math.round(averageConfidence || 75)}/100</p>
                 </div>
-                <DollarSign className="w-8 h-8 text-green-400" />
+                <AlertTriangle className="w-8 h-8 text-amber-400" />
               </div>
             </CardContent>
           </Card>

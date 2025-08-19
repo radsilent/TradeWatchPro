@@ -150,37 +150,153 @@ export default function GlobalMap({
       };
 
       // Add port markers
+      console.log('Adding port markers for', ports.length, 'ports');
+      let portsAdded = 0;
+      let portsSkipped = 0;
+      
       ports.forEach((port) => {
-        if (!port.coordinates?.lat || !port.coordinates?.lng) return;
+        if (!port.coordinates?.lat || !port.coordinates?.lng) {
+          console.log('Skipping port due to missing coordinates:', port.name, port.coordinates);
+          portsSkipped++;
+          return;
+        }
         
         const marker = L.marker([port.coordinates.lat, port.coordinates.lng], {
           icon: createCustomIcon(port.status)
         }).addTo(map);
+        
+        portsAdded++;
 
         const popupContent = document.createElement('div');
-        popupContent.className = 'p-3 min-w-64';
+        popupContent.className = 'p-4 min-w-80 max-w-96';
+        
+        // Get status color and text
+        const getStatusInfo = (status) => {
+          switch(status) {
+            case 'operational':
+            case 'normal':
+              return { color: 'bg-emerald-100 text-emerald-800 border-emerald-200', text: 'Operational' };
+            case 'minor_disruption':
+              return { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', text: 'Minor Disruption' };
+            case 'major_disruption':
+              return { color: 'bg-orange-100 text-orange-800 border-orange-200', text: 'Major Disruption' };
+            case 'closed':
+              return { color: 'bg-red-100 text-red-800 border-red-200', text: 'Closed' };
+            default:
+              return { color: 'bg-gray-100 text-gray-800 border-gray-200', text: 'Unknown' };
+          }
+        };
+        
+        const statusInfo = getStatusInfo(port.status);
+        const coordinates = port.coordinates;
+        const lastUpdate = port.lastUpdate ? new Date(port.lastUpdate).toLocaleString() : 'Unknown';
+        
         popupContent.innerHTML = `
-          <div class="flex items-start justify-between mb-3">
-            <div>
-              <h3 class="font-bold text-slate-900 text-lg">${port.name || 'Unknown Port'}</h3>
-              <p class="text-slate-600 text-sm">${port.country || 'Unknown Country'}</p>
+          <div class="border-b border-gray-200 pb-3 mb-3">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <h3 class="font-bold text-slate-900 text-lg mb-1">${port.name || 'Unknown Port'}</h3>
+                <p class="text-slate-600 text-sm flex items-center">
+                  <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
+                  </svg>
+                  ${port.country || 'Unknown Country'}
+                </p>
+              </div>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.color}">
+                ${statusInfo.text}
+              </span>
             </div>
           </div>
-          <div class="space-y-2 mb-3">
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
-              ${port.status === 'operational' || port.status === 'normal' ? 'Operational' : 
-                port.status === 'minor_disruption' ? 'Minor Disruption' :
-                port.status === 'major_disruption' ? 'Major Disruption' : 'Closed'}
-            </span>
-            ${port.port_code ? `<p class="text-xs text-slate-500">Code: ${port.port_code}</p>` : ''}
-            ${port.annual_throughput ? `<p class="text-xs text-slate-500">Annual Throughput: ${(port.annual_throughput / 1000000).toFixed(1)}M TEU</p>` : ''}
+          
+          <div class="space-y-3">
+            <!-- Port Details -->
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              ${port.port_code ? `
+                <div>
+                  <span class="font-semibold text-slate-700">Port Code:</span>
+                  <p class="text-slate-900">${port.port_code}</p>
+                </div>
+              ` : ''}
+              ${port.rank ? `
+                <div>
+                  <span class="font-semibold text-slate-700">Global Rank:</span>
+                  <p class="text-slate-900">#${port.rank}</p>
+                </div>
+              ` : ''}
+              ${coordinates ? `
+                <div>
+                  <span class="font-semibold text-slate-700">Coordinates:</span>
+                  <p class="text-slate-900">${coordinates.lat?.toFixed(4)}°, ${coordinates.lng?.toFixed(4)}°</p>
+                </div>
+              ` : ''}
+              ${port.region ? `
+                <div>
+                  <span class="font-semibold text-slate-700">Region:</span>
+                  <p class="text-slate-900">${port.region}</p>
+                </div>
+              ` : ''}
+            </div>
+            
+            <!-- Traffic & Capacity -->
+            <div class="border-t border-gray-100 pt-3">
+              <h4 class="font-semibold text-slate-700 text-sm mb-2">Traffic & Capacity</h4>
+              <div class="grid grid-cols-1 gap-2 text-xs">
+                ${port.annual_throughput ? `
+                  <div class="flex justify-between">
+                    <span class="text-slate-600">Annual Throughput:</span>
+                    <span class="font-medium text-slate-900">${(port.annual_throughput / 1000000).toFixed(1)}M TEU</span>
+                  </div>
+                ` : ''}
+                ${port.teu ? `
+                  <div class="flex justify-between">
+                    <span class="text-slate-600">TEU Capacity:</span>
+                    <span class="font-medium text-slate-900">${(port.teu / 1000000).toFixed(1)}M TEU</span>
+                  </div>
+                ` : ''}
+                ${port.container_volume && port.container_volume !== 'N/A' ? `
+                  <div class="flex justify-between">
+                    <span class="text-slate-600">Container Volume:</span>
+                    <span class="font-medium text-slate-900">${port.container_volume}</span>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+            
+            <!-- Strategic Info -->
+            <div class="border-t border-gray-100 pt-3">
+              <h4 class="font-semibold text-slate-700 text-sm mb-2">Strategic Information</h4>
+              <div class="flex items-center justify-between">
+                ${port.strategic_importance ? `
+                  <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                    Priority Level ${port.strategic_importance}
+                  </span>
+                ` : ''}
+                ${port.disruption_level ? `
+                  <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                    Risk: ${port.disruption_level.charAt(0).toUpperCase() + port.disruption_level.slice(1)}
+                  </span>
+                ` : ''}
+              </div>
+            </div>
+            
+            <!-- Last Update -->
+            <div class="border-t border-gray-100 pt-2">
+              <p class="text-xs text-slate-500">
+                <svg class="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                </svg>
+                Last updated: ${lastUpdate}
+              </p>
+            </div>
           </div>
-          ${port.strategic_importance ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white text-slate-900 border border-slate-200">Priority ${port.strategic_importance}</span>` : ''}
         `;
 
         marker.bindPopup(popupContent);
         marker.on('click', () => onPortClick && onPortClick(port));
       });
+      
+      console.log(`Port markers summary: ${portsAdded} added, ${portsSkipped} skipped out of ${ports.length} total ports`);
 
       // Add disruption areas
       disruptions.forEach((disruption) => {

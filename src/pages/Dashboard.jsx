@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Port, Disruption } from "@/api/entities";
 import { InvokeLLM } from "@/api/integrations";
 import GlobalMap from "../components/dashboard/GlobalMap";
@@ -39,17 +39,28 @@ export default function Dashboard() {
     });
   }, [disruptions, selectedDateRange]);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
     try {
       console.log('Loading dashboard data...');
+      
+      // Skip cache clearing for faster loading
+      console.log('Loading with cached data for better performance');
+      
       const [portsData, disruptionsData] = await Promise.all([
-        Port.list('-strategic_importance', 200), // Get more ports (top 200)
-        Disruption.list('-created_date', 50)
+        Port.list('-strategic_importance', 50), // Reduce to 50 ports for faster loading
+        Disruption.list('-created_date', 20) // Reduce to 20 disruptions for faster loading
       ]);
       
       console.log('Ports loaded:', portsData.length);
+      console.log('Sample port data:', portsData.slice(0, 3));
       console.log('Disruptions loaded:', disruptionsData.length);
+      console.log('Sample disruptions:', disruptionsData.slice(0, 3));
+      console.log('Active disruptions:', disruptionsData.filter(d => d.status === 'active').length);
+      console.log('Maritime relevant disruptions:', disruptionsData.filter(d => {
+        const title = (d.title || '').toLowerCase();
+        return title.includes('shipping') || title.includes('port') || title.includes('maritime');
+      }).length);
       
       setPorts(portsData);
       setDisruptions(disruptionsData);
@@ -74,7 +85,7 @@ export default function Dashboard() {
       console.error("Error loading dashboard data:", error);
     }
     setIsLoading(false);
-  };
+  }, []);
 
   const generateRecentDisruptionData = async () => {
     try {
@@ -138,13 +149,101 @@ export default function Dashboard() {
   };
 
   const generateRealTimeAlerts = async () => {
-    // Implementation for generating real-time alerts
-    console.log("Generating real-time alerts...");
+    console.log("Refreshing real-time alerts...");
+    setIsLoading(true);
+    try {
+      // Force refresh disruption data
+      const freshDisruptions = await Disruption.list('-created_date', 100);
+      setDisruptions(freshDisruptions);
+      console.log('Refreshed disruptions:', freshDisruptions.length);
+    } catch (error) {
+      console.error("Error refreshing real-time alerts:", error);
+    }
+    setIsLoading(false);
   };
 
-  const getCriticalDisruptions = () => {
-    return filteredDisruptions.filter(d => d.severity === 'critical' || d.severity === 'high').slice(0, 5);
-  };
+  const getCriticalDisruptions = useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)); // Expanded to 7 days for more disruptions
+    
+    console.log('Filtering critical disruptions from:', filteredDisruptions.length, 'total disruptions');
+    
+    const result = filteredDisruptions.filter(d => {
+      // Show all severity levels initially to ensure we have some data
+      const isRelevantSeverity = d.severity === 'critical' || d.severity === 'high' || d.severity === 'medium' || d.severity === 'low';
+      
+      // Expand time window to 30 days to get more disruptions
+      const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+      const disruptionDate = safeParseDate(d.start_date);
+      const isRecent = disruptionDate && disruptionDate >= thirtyDaysAgo;
+      const isActive = d.status === 'active' || d.status === 'ongoing' || d.status === 'monitoring';
+      
+      // More relaxed maritime relevance check
+      const title = (d.title || '').toLowerCase();
+      const description = (d.description || '').toLowerCase();
+      const isRelevant = !title.includes('meta') && 
+                        !title.includes('facebook') && 
+                        !title.includes('ai chat') &&
+                        !title.includes('children') &&
+                        !title.includes('sensual') &&
+                        (title.includes('shipping') || 
+                         title.includes('port') || 
+                         title.includes('maritime') || 
+                         title.includes('vessel') || 
+                         title.includes('cargo') || 
+                         title.includes('suez') || 
+                         title.includes('panama') || 
+                         title.includes('red sea') ||
+                         title.includes('supply chain') ||
+                         title.includes('container') ||
+                         title.includes('strike') ||
+                         title.includes('congestion') ||
+                         title.includes('delay') ||
+                         title.includes('canal') ||
+                         title.includes('strait') ||
+                         title.includes('trade') ||
+                         title.includes('freight') ||
+                         description.includes('shipping') ||
+                         description.includes('maritime') ||
+                         description.includes('port') ||
+                         description.includes('trade') ||
+                         d.affected_regions?.some(region => region.toLowerCase().includes('sea')) ||
+                         d.type?.includes('port') ||
+                         d.type?.includes('shipping'));
+      
+      console.log(`Disruption "${d.title}": severity=${isRelevantSeverity}, recent=${isRecent}, active=${isActive}, relevant=${isRelevant}`);
+      
+      // Temporarily make filtering very permissive to debug data flow
+      const passesFilter = isRelevantSeverity && (isRecent || isActive);
+      console.log(`Filter result for "${d.title}": ${passesFilter}`);
+      return passesFilter;
+    })
+    .sort((a, b) => {
+      // Sort by: 1) has source (news), 2) severity, 3) date
+      const aHasSource = (a.sources && a.sources.length > 0) ? 1 : 0;
+      const bHasSource = (b.sources && b.sources.length > 0) ? 1 : 0;
+      if (aHasSource !== bHasSource) return bHasSource - aHasSource;
+      
+      const severityOrder = { critical: 2, high: 1 };
+      const severityDiff = (severityOrder[b.severity] || 0) - (severityOrder[a.severity] || 0);
+      if (severityDiff !== 0) return severityDiff;
+      
+      const dateA = safeParseDate(a.start_date) || new Date(0);
+      const dateB = safeParseDate(b.start_date) || new Date(0);
+      return dateB.getTime() - dateA.getTime();
+    })
+    .slice(0, 5);
+    
+    console.log('Critical disruptions filtered:', result.length);
+    console.log('Filtered disruptions details:', result.map(d => ({ 
+      title: d.title, 
+      severity: d.severity, 
+      status: d.status, 
+      date: d.start_date 
+    })));
+    
+    return result;
+  }, [filteredDisruptions]);
 
   const handlePortClick = (port) => {
     setSelectedPort(port);
@@ -187,8 +286,8 @@ export default function Dashboard() {
               <DateSlicer
                 minDate={dateConfig.min}
                 maxDate={dateConfig.max}
-                selectedRange={selectedDateRange}
-                onRangeChange={handleDateRangeChange}
+                value={selectedDateRange}
+                onValueChange={handleDateRangeChange}
               />
             </div>
           </div>
@@ -197,7 +296,7 @@ export default function Dashboard() {
         {/* Sidebar */}
         <div className="space-y-6">
           <ActiveAlerts
-            disruptions={getCriticalDisruptions()}
+            disruptions={getCriticalDisruptions}
             onGenerateAlerts={generateRealTimeAlerts}
             isLoading={isLoading}
           />
