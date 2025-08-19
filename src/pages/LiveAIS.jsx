@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, Ship, MapPin, Clock, Navigation, Speed, Anchor, Filter } from "lucide-react";
+import { Search, Ship, MapPin, Clock, Navigation, Zap, Anchor, Filter } from "lucide-react";
 import { parseAISData, getVesselStatus, getVesselManeuver, getVesselColor, getVesselSize, getVesselHeading } from "@/utils/aisDataParser";
 import { format, isValid, parseISO } from "date-fns";
 
@@ -175,7 +175,7 @@ export default function LiveAIS() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-100 mb-2">🚢 Live AIS Vessel Tracking</h1>
+          <h1 className="text-3xl font-bold text-slate-100 mb-2">Live AIS Vessel Tracking</h1>
           <p className="text-slate-400">Real-time vessel positions and maritime traffic monitoring</p>
         </div>
 
@@ -224,7 +224,7 @@ export default function LiveAIS() {
                   <p className="text-sm font-medium text-slate-400">Avg Speed</p>
                   <p className="text-2xl font-bold text-purple-400">{stats.avgSpeed} knots</p>
                 </div>
-                <Speed className="h-8 w-8 text-purple-500" />
+                <Zap className="h-8 w-8 text-purple-500" />
               </div>
             </CardContent>
           </Card>

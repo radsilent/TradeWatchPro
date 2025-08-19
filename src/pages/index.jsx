@@ -1,14 +1,11 @@
 import Layout from "./Layout.jsx";
-
-import Dashboard from "./Dashboard";
-
-import Disruptions from "./Disruptions";
-
-import Analytics from "./Analytics";
-
-import LiveAIS from "./LiveAIS";
-
-import ImpactedPorts from "./ImpactedPorts";
+import Dashboard from "./Dashboard.jsx";
+import Disruptions from "./Disruptions.jsx";
+import Analytics from "./Analytics.jsx";
+import LiveAIS from "./LiveAIS.jsx";
+import ImpactedPorts from "./ImpactedPorts.jsx";
+import VesselTracking from "./VesselTracking.jsx";
+import TariffTracking from "./TariffTracking.jsx";
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -23,6 +20,10 @@ const PAGES = {
     LiveAIS: LiveAIS,
     
     ImpactedPorts: ImpactedPorts,
+    
+    VesselTracking: VesselTracking,
+    
+    TariffTracking: TariffTracking,
     
 }
 
@@ -63,6 +64,10 @@ function PagesContent() {
                 <Route path="/LiveAIS" element={<LiveAIS />} />
                 
                 <Route path="/ImpactedPorts" element={<ImpactedPorts />} />
+                
+                <Route path="/VesselTracking" element={<VesselTracking />} />
+                
+                <Route path="/TariffTracking" element={<TariffTracking />} />
                 
             </Routes>
         </Layout>

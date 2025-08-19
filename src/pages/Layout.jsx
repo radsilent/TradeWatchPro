@@ -3,8 +3,9 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Globe, AlertTriangle, BarChart3, Map, Activity, Satellite, Target } from "lucide-react";
+import { Globe, AlertTriangle, BarChart3, Map, Activity, Satellite, Target, Ship, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import VectorStreamLogo from "@/components/VectorStreamLogo";
 import {
   Sidebar,
   SidebarContent,
@@ -29,6 +30,16 @@ const navigationItems = [
     title: "Active Disruptions",
     url: createPageUrl("Disruptions"),
     icon: AlertTriangle,
+  },
+  {
+    title: "Vessel Tracking",
+    url: createPageUrl("VesselTracking"),
+    icon: Ship,
+  },
+  {
+    title: "Tariff Tracking",
+    url: createPageUrl("TariffTracking"),
+    icon: DollarSign,
   },
   {
     title: "Impact Analysis",
@@ -78,6 +89,13 @@ export default function Layout({ children, currentPageName }) {
             color: var(--slate-100);
           }
           
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+          
+          * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+          }
+          
           .maritime-gradient {
             background: linear-gradient(135deg, var(--maritime-blue) 0%, var(--ocean-blue) 100%);
           }
@@ -86,13 +104,19 @@ export default function Layout({ children, currentPageName }) {
       <div className="min-h-screen flex w-full bg-slate-900">
         <Sidebar className="border-r border-slate-700/50 bg-slate-900/95 backdrop-blur-sm">
           <SidebarHeader className="border-b border-slate-700/50 p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 maritime-gradient rounded-xl flex items-center justify-center shadow-lg">
-                <Map className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="font-bold text-slate-100 text-lg tracking-tight">TradeWatch</h2>
-                <p className="text-xs text-slate-400 tracking-wide">Global Trade Intelligence</p>
+            <div className="flex flex-col gap-4">
+              <VectorStreamLogo 
+                className="h-6 w-6" 
+                textClassName="text-sm font-bold"
+              />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 maritime-gradient rounded-xl flex items-center justify-center shadow-lg">
+                  <Map className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-slate-100 text-lg tracking-tight">TradeWatch</h2>
+                  <p className="text-xs text-slate-400 tracking-wide">Global Trade Intelligence Platform</p>
+                </div>
               </div>
             </div>
           </SidebarHeader>
@@ -163,7 +187,7 @@ export default function Layout({ children, currentPageName }) {
           <header className="bg-slate-900/50 backdrop-blur-sm border-b border-slate-700/50 px-6 py-4 lg:hidden">
             <div className="flex items-center gap-4">
               <SidebarTrigger className="hover:bg-slate-800 p-2 rounded-lg transition-colors duration-200" />
-              <h1 className="text-xl font-bold text-slate-100">TradeWatch</h1>
+              <VectorStreamLogo className="h-6 w-6" textClassName="text-lg font-bold" />
             </div>
           </header>
 

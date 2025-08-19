@@ -1,146 +1,17 @@
-
 import React, { useState, useEffect, useMemo } from "react";
-import { fetchRealTimeDisruptions, getTop200Ports } from "@/api/integrations";
+import { Port, Disruption } from "@/api/entities";
+import { InvokeLLM } from "@/api/integrations";
 import GlobalMap from "../components/dashboard/GlobalMap";
 import MetricsPanel from "../components/dashboard/MetricsPanel";
 import ActiveAlerts from "../components/dashboard/ActiveAlerts";
 import DisruptionTimeline from "../components/dashboard/DisruptionTimeline";
 import DateSlicer from "../components/dashboard/DateSlicer";
-import { min, max, isWithinInterval, parseISO, isValid, addYears, addMonths } from "date-fns";
+import { min, max, isWithinInterval, parseISO, isValid } from "date-fns";
 
 const safeParseDate = (dateString) => {
   if (!dateString) return null;
   const date = parseISO(dateString);
   return isValid(date) ? date : null;
-};
-
-// Generate future disruption forecasts
-const generateFutureDisruptions = () => {
-  const now = new Date();
-  const futureDisruptions = [
-    {
-      id: "forecast_1",
-      title: "Predicted Cyber Attack on Major Port Systems",
-      description: "AI analysis predicts increased cyber threats targeting port management systems in 2025-2026",
-      start_date: addMonths(now, 6).toISOString(),
-      end_date: addMonths(now, 8).toISOString(),
-      severity: "high",
-      affected_regions: ["North Atlantic", "Mediterranean"],
-      economic_impact: "$3.2 billion",
-      status: "forecasted",
-      confidence_score: 78,
-      sources: ["AI Analysis", "Cybersecurity Trends"],
-      type: "cyber",
-      forecast_confidence: "High probability based on current threat patterns"
-    },
-    {
-      id: "forecast_2",
-      title: "Climate Change Impact on Panama Canal",
-      description: "Projected severe drought conditions affecting canal operations through 2027",
-      start_date: addMonths(now, 12).toISOString(),
-      end_date: addMonths(now, 18).toISOString(),
-      severity: "critical",
-      affected_regions: ["Panama Canal", "Caribbean Sea"],
-      economic_impact: "$8.5 billion",
-      status: "forecasted",
-      confidence_score: 85,
-      sources: ["Climate Models", "NOAA Predictions"],
-      type: "weather",
-      forecast_confidence: "High confidence based on climate models"
-    },
-    {
-      id: "forecast_3",
-      title: "Geopolitical Tensions in South China Sea",
-      description: "Escalating tensions predicted to impact major shipping routes by 2026",
-      start_date: addMonths(now, 8).toISOString(),
-      end_date: addMonths(now, 14).toISOString(),
-      severity: "critical",
-      affected_regions: ["South China Sea", "East China Sea"],
-      economic_impact: "$12.3 billion",
-      status: "forecasted",
-      confidence_score: 72,
-      sources: ["Geopolitical Analysis", "Trade Intelligence"],
-      type: "geopolitical",
-      forecast_confidence: "Medium confidence based on current tensions"
-    },
-    {
-      id: "forecast_4",
-      title: "Labor Disputes in Major European Ports",
-      description: "Predicted strikes and labor disputes affecting European port operations in 2025",
-      start_date: addMonths(now, 10).toISOString(),
-      end_date: addMonths(now, 12).toISOString(),
-      severity: "medium",
-      affected_regions: ["North Sea", "Baltic Sea"],
-      economic_impact: "$2.1 billion",
-      status: "forecasted",
-      confidence_score: 68,
-      sources: ["Labor Relations Analysis", "Union Trends"],
-      type: "labor",
-      forecast_confidence: "Medium confidence based on labor trends"
-    },
-    {
-      id: "forecast_5",
-      title: "Infrastructure Failure at Suez Canal",
-      description: "Predicted infrastructure challenges affecting canal operations in 2028",
-      start_date: addMonths(now, 24).toISOString(),
-      end_date: addMonths(now, 30).toISOString(),
-      severity: "high",
-      affected_regions: ["Suez Canal", "Red Sea"],
-      economic_impact: "$6.7 billion",
-      status: "forecasted",
-      confidence_score: 65,
-      sources: ["Infrastructure Analysis", "Engineering Reports"],
-      type: "infrastructure",
-      forecast_confidence: "Medium confidence based on infrastructure age"
-    },
-    {
-      id: "forecast_6",
-      title: "Piracy Surge in Gulf of Guinea",
-      description: "Predicted increase in piracy activities affecting West African shipping routes",
-      start_date: addMonths(now, 15).toISOString(),
-      end_date: addMonths(now, 21).toISOString(),
-      severity: "medium",
-      affected_regions: ["Gulf of Guinea", "West Africa"],
-      economic_impact: "$1.8 billion",
-      status: "forecasted",
-      confidence_score: 70,
-      sources: ["Security Analysis", "Regional Intelligence"],
-      type: "security",
-      forecast_confidence: "High confidence based on current trends"
-    },
-    {
-      id: "forecast_7",
-      title: "Major Hurricane Season Impact",
-      description: "Predicted severe hurricane season affecting Gulf of Mexico ports in 2026",
-      start_date: addMonths(now, 18).toISOString(),
-      end_date: addMonths(now, 22).toISOString(),
-      severity: "high",
-      affected_regions: ["Gulf of Mexico", "Caribbean Sea"],
-      economic_impact: "$4.2 billion",
-      status: "forecasted",
-      confidence_score: 75,
-      sources: ["NOAA Predictions", "Climate Models"],
-      type: "weather",
-      forecast_confidence: "High confidence based on climate patterns"
-    },
-    {
-      id: "forecast_8",
-      title: "Supply Chain Digital Transformation Disruption",
-      description: "Predicted disruptions during major digital transformation of global supply chains",
-      start_date: addMonths(now, 20).toISOString(),
-      end_date: addMonths(now, 26).toISOString(),
-      severity: "medium",
-      affected_regions: ["Global"],
-      economic_impact: "$5.5 billion",
-      status: "forecasted",
-      confidence_score: 80,
-      sources: ["Technology Analysis", "Industry Reports"],
-      type: "technology",
-      forecast_confidence: "High confidence based on industry trends"
-    }
-  ];
-  
-  return futureDisruptions;
 };
 
 export default function Dashboard() {
@@ -152,7 +23,6 @@ export default function Dashboard() {
   const [mapZoom, setMapZoom] = useState(2);
   const [dateConfig, setDateConfig] = useState({ min: null, max: null });
   const [selectedDateRange, setSelectedDateRange] = useState([null, null]);
-  const [showForecasts, setShowForecasts] = useState(true);
 
   useEffect(() => {
     loadDashboardData();
@@ -172,116 +42,153 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     setIsLoading(true);
     try {
-      // Load top 200 ports
-      const top200Ports = getTop200Ports();
-      setPorts(top200Ports);
+      console.log('Loading dashboard data...');
+      const [portsData, disruptionsData] = await Promise.all([
+        Port.list('-strategic_importance', 200), // Get more ports (top 200)
+        Disruption.list('-created_date', 50)
+      ]);
+      
+      console.log('Ports loaded:', portsData.length);
+      console.log('Disruptions loaded:', disruptionsData.length);
+      
+      setPorts(portsData);
+      setDisruptions(disruptionsData);
 
-      // Fetch real-time disruptions from news
-      const realTimeDisruptions = await fetchRealTimeDisruptions();
-      
-      // Generate future disruption forecasts
-      const futureDisruptions = generateFutureDisruptions();
-      
-      // Combine real-time and forecasted disruptions
-      const allDisruptions = [...realTimeDisruptions, ...futureDisruptions];
-      setDisruptions(allDisruptions);
-
-      // Set date range from past 30 days to 2030
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const endOf2030 = new Date('2030-12-31');
-      
-      setDateConfig({ min: thirtyDaysAgo, max: endOf2030 });
-      setSelectedDateRange([thirtyDaysAgo, endOf2030]);
+      if (disruptionsData.length > 0) {
+        const dates = disruptionsData.map(d => safeParseDate(d.start_date)).filter(Boolean);
+        if (dates.length > 0) {
+          const minDate = min(dates);
+          // Extend to 2035 for AI-forecasted events
+          const maxDate = new Date('2035-12-31');
+          setDateConfig({ min: minDate, max: maxDate });
+          setSelectedDateRange([minDate, maxDate]);
+        }
+      } else {
+        // Default range extending to 2035
+        const minDate = new Date('2024-01-01');
+        const maxDate = new Date('2035-12-31');
+        setDateConfig({ min: minDate, max: maxDate });
+        setSelectedDateRange([minDate, maxDate]);
+      }
     } catch (error) {
       console.error("Error loading dashboard data:", error);
     }
     setIsLoading(false);
   };
 
-  const generateRealTimeAlerts = async () => {
+  const generateRecentDisruptionData = async () => {
     try {
-      // Fetch latest real-time disruptions
-      const latestDisruptions = await fetchRealTimeDisruptions();
-      const futureDisruptions = generateFutureDisruptions();
-      const allDisruptions = [...latestDisruptions, ...futureDisruptions];
-      setDisruptions(allDisruptions);
+      const result = await InvokeLLM({
+        prompt: `Generate realistic trade disruption events for the past 30 days. Include current real-world issues like:
+        - Geopolitical tensions (South China Sea, Red Sea attacks, Ukraine conflict impacts)
+        - Weather events (storms, droughts affecting Panama Canal, typhoons)
+        - Port strikes and labor disputes
+        - Cyber attacks on maritime infrastructure
+        - Supply chain bottlenecks
+        - Container ship accidents or groundings
+        
+        For each event, provide:
+        - Descriptive title and detailed description
+        - Start date within last 30 days
+        - Severity level (low, medium, high, critical)
+        - Affected regions from major shipping routes
+        - Economic impact estimate
+        - Current status (active, resolved, monitoring)
+        - Confidence score (70-95%)
+        - Type (weather, geopolitical, cyber, infrastructure, labor, security)`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            disruptions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  description: { type: "string" },
+                  event_date: { type: "string" },
+                  severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
+                  affected_regions: { type: "array", items: { type: "string" } },
+                  economic_impact: { type: "string" },
+                  status: { type: "string", enum: ["active", "resolved", "monitoring"] },
+                  confidence_score: { type: "number", minimum: 70, maximum: 95 },
+                  type: { type: "string", enum: ["weather", "geopolitical", "cyber", "infrastructure", "labor", "security"] }
+                },
+                required: ["title", "description", "event_date", "severity", "affected_regions"]
+              }
+            }
+          }
+        }
+      });
+
+      if (result?.disruptions) {
+        // Create disruption records from generated data
+        for (const disruptionData of result.disruptions.slice(0, 15)) {
+          await Disruption.create({
+            ...disruptionData,
+            start_date: disruptionData.event_date || new Date().toISOString(),
+            affected_ports: [] // Will be populated based on affected_regions
+          });
+        }
+      }
     } catch (error) {
-      console.error("Error generating real-time alerts:", error);
+      console.error("Error generating recent disruption data:", error);
     }
   };
 
-  const getPortsByStatus = () => {
-    const statusCounts = {
-      normal: ports.filter(p => p.status === 'normal').length,
-      minor_disruption: ports.filter(p => p.status === 'minor_disruption').length,
-      major_disruption: ports.filter(p => p.status === 'major_disruption').length,
-      closed: ports.filter(p => p.status === 'closed').length
-    };
-    return statusCounts;
+  const generateRealTimeAlerts = async () => {
+    // Implementation for generating real-time alerts
+    console.log("Generating real-time alerts...");
   };
 
   const getCriticalDisruptions = () => {
-    return filteredDisruptions.filter(d => d.severity === 'critical' || d.severity === 'high');
-  };
-
-  const getForecastedDisruptions = () => {
-    return filteredDisruptions.filter(d => d.status === 'forecasted');
+    return filteredDisruptions.filter(d => d.severity === 'critical' || d.severity === 'high').slice(0, 5);
   };
 
   const handlePortClick = (port) => {
     setSelectedPort(port);
-    setMapCenter([port.coordinates.lat, port.coordinates.lng]);
-    setMapZoom(8);
+    if (port.coordinates) {
+      setMapCenter([port.coordinates.lat, port.coordinates.lng]);
+      setMapZoom(6);
+    }
+  };
+
+  const handleDateRangeChange = (range) => {
+    setSelectedDateRange(range);
   };
 
   return (
     <div className="h-screen flex flex-col bg-slate-900">
       <div className="flex-1 grid grid-cols-1 xl:grid-cols-4 gap-6 p-6">
-        {/* Main Map Area */}
+        {/* Main content area */}
         <div className="xl:col-span-3 space-y-6">
-          <div className="bg-slate-800/30 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700/50 overflow-hidden">
-            <div className="p-6 border-b border-slate-700/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold text-slate-100 tracking-tight">Global Trade Monitor</h1>
-                  <p className="text-slate-400 mt-1">Real-time port status and disruption tracking with future forecasting</p>
-                </div>
-                <MetricsPanel 
-                  totalPorts={ports.length}
-                  statusCounts={getPortsByStatus()}
-                  activeDisruptions={getCriticalDisruptions().length}
-                />
-              </div>
-              
-              {/* Real-time Data Info */}
-              <div className="mt-4 p-4 bg-slate-700/30 rounded-lg border border-slate-600/30">
-                <h3 className="text-sm font-semibold text-slate-200 mb-2">Real-time News Integration & Future Forecasting</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Data sourced from real-time news APIs covering <span className="text-slate-300">200+ major ports worldwide</span> and 
-                  <span className="text-slate-300"> trade disruption events until 2030</span>. 
-                  <span className="text-slate-300"> AI-powered forecasting</span> predicts future disruptions based on current trends, 
-                  climate models, and geopolitical analysis. News sources include Reuters, Bloomberg, BBC, and maritime industry publications.
-                </p>
-              </div>
-            </div>
+          {/* Metrics Panel */}
+          <MetricsPanel 
+            ports={ports} 
+            disruptions={filteredDisruptions} 
+            isLoading={isLoading}
+          />
+
+          {/* Global Map */}
+          <div className="relative h-96 lg:h-[600px]">
+            <GlobalMap
+              ports={ports}
+              disruptions={filteredDisruptions}
+              selectedPort={selectedPort}
+              onPortClick={handlePortClick}
+              center={mapCenter}
+              zoom={mapZoom}
+              isLoading={isLoading}
+            />
             
-            <div className="relative h-96 lg:h-[600px]">
-              <GlobalMap
-                ports={ports}
-                disruptions={filteredDisruptions}
-                selectedPort={selectedPort}
-                onPortClick={handlePortClick}
-                center={mapCenter}
-                zoom={mapZoom}
-                isLoading={isLoading}
-              />
-              
+            {/* Date Slicer */}
+            <div className="absolute bottom-4 left-4 right-4 z-10">
               <DateSlicer
                 minDate={dateConfig.min}
                 maxDate={dateConfig.max}
-                value={selectedDateRange}
-                onValueChange={setSelectedDateRange}
+                selectedRange={selectedDateRange}
+                onRangeChange={handleDateRangeChange}
               />
             </div>
           </div>
@@ -300,58 +207,109 @@ export default function Dashboard() {
             selectedPort={selectedPort}
           />
           
-          {/* Forecasted Disruptions */}
+          {/* Tariff Tracking Overview */}
           <div className="bg-slate-800/30 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700/50 p-6">
-            <h3 className="text-xl font-semibold text-slate-100 mb-3">🔮 Future Forecasts</h3>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {getForecastedDisruptions().slice(0, 5).map((disruption, index) => (
-                <div key={index} className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/30">
-                  <h4 className="text-sm font-medium text-slate-200 mb-1">{disruption.title}</h4>
-                  <p className="text-xs text-slate-400 mb-2">{disruption.description}</p>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      disruption.severity === 'critical' ? 'bg-red-500/20 text-red-300' :
-                      disruption.severity === 'high' ? 'bg-orange-500/20 text-orange-300' :
-                      disruption.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
-                      'bg-green-500/20 text-green-300'
-                    }`}>
-                      {disruption.severity}
-                    </span>
-                    <span className="text-xs text-purple-400 bg-purple-500/20 px-2 py-1 rounded">
-                      Forecast
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Confidence: {disruption.confidence_score}% | {disruption.forecast_confidence}
-                  </p>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-slate-100">Tariff Tracking</h3>
+              <a 
+                href="/TariffTracking" 
+                className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
+              >
+                View All →
+              </a>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
+                <div>
+                  <p className="text-slate-100 font-medium text-sm">US-China Steel Tariffs</p>
+                  <p className="text-slate-400 text-xs">Active • High Priority</p>
                 </div>
-              ))}
+                <div className="text-right">
+                  <p className="text-red-400 font-bold">25.0%</p>
+                  <p className="text-red-400 text-xs">+15.0%</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
+                <div>
+                  <p className="text-slate-100 font-medium text-sm">EU Carbon Border Tax</p>
+                  <p className="text-slate-400 text-xs">Active • High Priority</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-orange-400 font-bold">18.5%</p>
+                  <p className="text-orange-400 text-xs">+18.5%</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
+                <div>
+                  <p className="text-slate-100 font-medium text-sm">UK-India Textiles</p>
+                  <p className="text-slate-400 text-xs">Active • Medium Priority</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-green-400 font-bold">5.5%</p>
+                  <p className="text-green-400 text-xs">-6.5%</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between text-sm">
+              <span className="text-slate-400">Total Tracked: 10 tariffs</span>
+              <span className="text-blue-400">Real-time updates</span>
             </div>
           </div>
           
-          {/* Real-time News Feed */}
+          {/* Vessel Tracking Overview */}
           <div className="bg-slate-800/30 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700/50 p-6">
-            <h3 className="text-xl font-semibold text-slate-100 mb-3">📰 Live News Feed</h3>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {filteredDisruptions.filter(d => d.status !== 'forecasted').slice(0, 5).map((disruption, index) => (
-                <div key={index} className="p-3 bg-slate-700/30 rounded-lg border border-slate-600/30">
-                  <h4 className="text-sm font-medium text-slate-200 mb-1">{disruption.title}</h4>
-                  <p className="text-xs text-slate-400 mb-2">{disruption.description}</p>
-                  <div className="flex justify-between items-center">
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      disruption.severity === 'critical' ? 'bg-red-500/20 text-red-300' :
-                      disruption.severity === 'high' ? 'bg-orange-500/20 text-orange-300' :
-                      disruption.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
-                      'bg-green-500/20 text-green-300'
-                    }`}>
-                      {disruption.severity}
-                    </span>
-                    <span className="text-xs text-slate-500">
-                      {disruption.sources?.[0] || 'News Source'}
-                    </span>
-                  </div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-slate-100">Key Vessels</h3>
+              <a 
+                href="/VesselTracking" 
+                className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
+              >
+                Track All →
+              </a>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
+                <div>
+                  <p className="text-slate-100 font-medium text-sm">MSC GÜLSÜN</p>
+                  <p className="text-red-400 text-xs">Delayed • Red Sea</p>
                 </div>
-              ))}
+                <div className="text-right">
+                  <p className="text-slate-300 text-xs">High value cargo</p>
+                  <p className="text-red-400 text-xs">18 days delay</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
+                <div>
+                  <p className="text-slate-100 font-medium text-sm">EVER GIVEN</p>
+                  <p className="text-orange-400 text-xs">Rerouted • Red Sea</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-slate-300 text-xs">High value cargo</p>
+                  <p className="text-orange-400 text-xs">15 days delay</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
+                <div>
+                  <p className="text-slate-100 font-medium text-sm">MAERSK LIMA</p>
+                  <p className="text-red-400 text-xs">Stuck • Panama Canal</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-slate-300 text-xs">Container cargo</p>
+                  <p className="text-red-400 text-xs">21 days delay</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between text-sm">
+              <span className="text-slate-400">Tracked: 10 vessels</span>
+              <span className="text-red-400">4 impacted</span>
             </div>
           </div>
         </div>

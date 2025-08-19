@@ -3,7 +3,30 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, AlertTriangle, XCircle, Activity } from "lucide-react";
 
-export default function MetricsPanel({ totalPorts, statusCounts, activeDisruptions }) {
+export default function MetricsPanel({ ports = [], disruptions = [], isLoading = false }) {
+  // Calculate status counts from ports data
+  const statusCounts = ports.reduce((acc, port) => {
+    const status = port.status || 'operational';
+    if (status === 'operational') acc.normal = (acc.normal || 0) + 1;
+    else if (status === 'minor_disruption') acc.minor_disruption = (acc.minor_disruption || 0) + 1;
+    else if (status === 'major_disruption') acc.major_disruption = (acc.major_disruption || 0) + 1;
+    else if (status === 'closed') acc.closed = (acc.closed || 0) + 1;
+    return acc;
+  }, {});
+
+  if (isLoading) {
+    return (
+      <div className="flex gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-slate-800/50 rounded-xl p-4 min-w-20 animate-pulse">
+            <div className="w-5 h-5 bg-slate-700 rounded mx-auto mb-2"></div>
+            <div className="w-8 h-6 bg-slate-700 rounded mx-auto mb-1"></div>
+            <div className="w-12 h-3 bg-slate-700 rounded mx-auto"></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
   const metrics = [
     {
       label: 'Operational',

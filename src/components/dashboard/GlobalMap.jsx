@@ -15,6 +15,12 @@ export default function GlobalMap({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
+  console.log('GlobalMap component rendered with:', { 
+    portsLength: ports.length, 
+    disruptionsLength: disruptions.length, 
+    isLoading 
+  });
+
   useEffect(() => {
     setIsClient(true);
     const timer = setTimeout(() => {
@@ -39,7 +45,7 @@ export default function GlobalMap({
     return (
       <div className="w-full h-full bg-slate-800/50 rounded-lg flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4">🗺️</div>
+          <div className="text-6xl mb-4">MAP</div>
           <h3 className="text-xl font-semibold text-slate-200 mb-2">Interactive Global Map</h3>
           <p className="text-slate-400">Port locations and disruption tracking</p>
           <p className="text-sm text-slate-500 mt-2">Loading...</p>
@@ -92,12 +98,44 @@ export default function GlobalMap({
       loadMap();
     }, []);
 
+    // Update markers when data changes
+    useEffect(() => {
+      if (mapInstance && L) {
+        console.log('Data changed, updating markers...', { 
+          portsCount: ports.length, 
+          disruptionsCount: disruptions.length 
+        });
+        addMarkers(mapInstance, L);
+      }
+    }, [mapInstance, L, ports, disruptions]);
+
     const addMarkers = (map, L) => {
       if (!map || !L) return;
+
+      console.log('GlobalMap addMarkers called with:', { 
+        portsCount: ports.length, 
+        disruptionsCount: disruptions.length 
+      });
+      
+      // Clear existing markers
+      map.eachLayer((layer) => {
+        if (layer instanceof L.Marker || layer instanceof L.Circle) {
+          map.removeLayer(layer);
+        }
+      });
+      
+      if (ports.length > 0) {
+        console.log('Sample port:', ports[0]);
+      }
+      
+      if (disruptions.length > 0) {
+        console.log('Sample disruption:', disruptions[0]);
+      }
 
       // Create custom icons
       const createCustomIcon = (status) => {
         const colors = {
+          operational: '#10b981',
           normal: '#10b981',
           minor_disruption: '#f59e0b', 
           major_disruption: '#ef4444',
@@ -130,14 +168,14 @@ export default function GlobalMap({
           </div>
           <div class="space-y-2 mb-3">
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
-              ${port.status === 'normal' ? 'Operational' : 
+              ${port.status === 'operational' || port.status === 'normal' ? 'Operational' : 
                 port.status === 'minor_disruption' ? 'Minor Disruption' :
                 port.status === 'major_disruption' ? 'Major Disruption' : 'Closed'}
             </span>
             ${port.port_code ? `<p class="text-xs text-slate-500">Code: ${port.port_code}</p>` : ''}
             ${port.annual_throughput ? `<p class="text-xs text-slate-500">Annual Throughput: ${(port.annual_throughput / 1000000).toFixed(1)}M TEU</p>` : ''}
           </div>
-          ${port.strategic_importance ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white text-slate-900 border border-slate-200">${port.strategic_importance.charAt(0).toUpperCase() + port.strategic_importance.slice(1)} Port</span>` : ''}
+          ${port.strategic_importance ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white text-slate-900 border border-slate-200">Priority ${port.strategic_importance}</span>` : ''}
         `;
 
         marker.bindPopup(popupContent);
@@ -146,9 +184,14 @@ export default function GlobalMap({
 
       // Add disruption areas
       disruptions.forEach((disruption) => {
-        if (!disruption.affected_regions) return;
+        // Handle both affected_regions and affectedRegions formats
+        const regions = disruption.affected_regions || disruption.affectedRegions || [];
+        if (!regions || regions.length === 0) {
+          console.log('Disruption missing regions:', disruption.title);
+          return;
+        }
         
-        disruption.affected_regions.forEach((region, index) => {
+        regions.forEach((region, index) => {
           const regionCoordinates = {
             'South China Sea': [16, 112],
             'Persian Gulf': [26, 52],
@@ -235,7 +278,7 @@ export default function GlobalMap({
       {!mapLoaded && (
         <div className="absolute inset-0 bg-slate-800/50 flex items-center justify-center rounded-lg">
           <div className="text-center">
-            <div className="text-6xl mb-4">🗺️</div>
+            <div className="text-6xl mb-4">MAP</div>
             <h3 className="text-xl font-semibold text-slate-200 mb-2">Interactive Global Map</h3>
             <p className="text-slate-400">Port locations and disruption tracking</p>
             <p className="text-sm text-slate-500 mt-2">Loading Leaflet map...</p>
