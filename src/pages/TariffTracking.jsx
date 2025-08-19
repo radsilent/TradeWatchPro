@@ -422,7 +422,7 @@ export default function TariffTracking() {
     if (searchTerm) {
       filtered = filtered.filter(tariff => 
         tariff.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tariff.countries.some(country => country.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (tariff.countries || []).some(country => country.toLowerCase().includes(searchTerm.toLowerCase())) ||
         tariff.productCategory.toLowerCase().includes(searchTerm.toLowerCase()) ||
         tariff.hsCode.includes(searchTerm)
       );
@@ -430,7 +430,7 @@ export default function TariffTracking() {
 
     if (countryFilter !== "all") {
       filtered = filtered.filter(tariff => 
-        tariff.countries.some(country => country.toLowerCase().includes(countryFilter.toLowerCase()))
+        (tariff.countries || []).some(country => country.toLowerCase().includes(countryFilter.toLowerCase()))
       );
     }
 
@@ -464,6 +464,8 @@ export default function TariffTracking() {
   };
 
   const getStatusColor = (status) => {
+    if (!status) return 'bg-blue-100 text-blue-800 border-blue-200';
+    
     switch(status.toLowerCase()) {
       case 'active': return 'bg-green-100 text-green-800 border-green-200';
       case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -474,6 +476,8 @@ export default function TariffTracking() {
   };
 
   const getPriorityColor = (priority) => {
+    if (!priority) return 'bg-gray-100 text-gray-800 border-gray-200';
+    
     switch(priority.toLowerCase()) {
       case 'critical': return 'bg-red-100 text-red-800 border-red-200';
       case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
@@ -485,7 +489,6 @@ export default function TariffTracking() {
 
   const totalTariffs = tariffs.length;
   const activeTariffs = tariffs.filter(t => t.status === 'Active').length;
-  const avgTariffRate = tariffs.reduce((sum, t) => sum + t.currentRate, 0) / tariffs.length;
   const totalTradeImpact = tariffs.reduce((sum, t) => {
     if (!t.estimatedImpact) return sum;
     const impactStr = typeof t.estimatedImpact === 'string' ? t.estimatedImpact : String(t.estimatedImpact);
@@ -523,7 +526,7 @@ export default function TariffTracking() {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -550,18 +553,7 @@ export default function TariffTracking() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Avg Tariff Rate</p>
-                <p className="text-3xl font-bold text-orange-600">{isNaN(avgTariffRate) ? '0.0' : avgTariffRate.toFixed(1)}%</p>
-                <p className="text-xs text-gray-500 mt-1">Weighted average</p>
-              </div>
-              <DollarSign className="h-12 w-12 text-orange-500" />
-            </div>
-          </CardContent>
-        </Card>
+
 
         <Card>
           <CardContent className="p-6">
@@ -676,7 +668,7 @@ export default function TariffTracking() {
                     <div className="lg:col-span-4">
                       <h3 className="font-bold text-lg text-gray-900 mb-1">{tariff.title}</h3>
                       <div className="flex flex-wrap gap-1 mb-2">
-                        {tariff.countries.map((country, idx) => (
+                        {(tariff.countries || []).map((country, idx) => (
                           <Badge key={idx} variant="outline" className="text-xs">
                             {country}
                           </Badge>
@@ -684,6 +676,11 @@ export default function TariffTracking() {
                       </div>
                       <p className="text-sm text-gray-600">{tariff.productCategory}</p>
                       <p className="text-xs text-gray-500">HS Code: {tariff.hsCode}</p>
+                      {tariff.imposingCountry && (
+                        <p className="text-xs text-blue-600 mt-1 font-medium">
+                          {tariff.imposingCountry} imposes {typeof tariff.currentRate === 'number' ? tariff.currentRate.toFixed(1) : tariff.rate || '0'}% tariff on imports from {(tariff.countries || ['target countries']).join(', ')}
+                        </p>
+                      )}
                     </div>
 
                     {/* Current Rate & Change */}
@@ -701,10 +698,10 @@ export default function TariffTracking() {
                     {/* Status & Priority */}
                     <div className="lg:col-span-2 flex flex-col gap-2">
                       <Badge className={getStatusColor(tariff.status)}>
-                        {tariff.status}
+                        {tariff.status || 'Active'}
                       </Badge>
                       <Badge className={getPriorityColor(tariff.priority)}>
-                        {tariff.priority}
+                        {tariff.priority || 'Medium'}
                       </Badge>
                     </div>
 
@@ -733,7 +730,7 @@ export default function TariffTracking() {
                     
                     {/* News Sources */}
                     <div className="flex flex-wrap gap-2">
-                      {tariff.sources.map((source, idx) => (
+                      {(tariff.sources || []).map((source, idx) => (
                         <a 
                           key={idx}
                           href={source.url}

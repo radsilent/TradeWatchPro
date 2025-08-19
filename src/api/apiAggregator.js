@@ -1,9 +1,9 @@
 // API Aggregation and Caching System for TradeWatch
 // Centralizes all real-time data fetching with intelligent caching and fallbacks
 
-import { getRealTimePortData, getRealTimeDisruptions } from './realTimeIntegration';
-import { fetchRealTimeMaritimeNews } from './newsIntegration';
-import { fetchRealTimeTariffData } from './tariffIntegration';
+import { getRealTimePortData, getRealTimeDisruptions } from './realTimeIntegration.js';
+import { fetchRealTimeMaritimeNews } from './newsIntegration.js';
+import { fetchRealTimeTariffData } from './tariffIntegration.js';
 
 // Advanced caching system with different TTLs for different data types
 class DataCache {

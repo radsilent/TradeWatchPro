@@ -1,8 +1,8 @@
-import { getRealTimePortData, getRealTimeDisruptions, getRealTimeVesselData } from './realTimeIntegration';
-import { fetchRealTimeMaritimeNews } from './newsIntegration';
-import { fetchRealTimeTariffData } from './tariffIntegration';
-import { getAggregatedPorts, getAggregatedDisruptions, getAggregatedTariffs } from './apiAggregator';
-import { getComprehensiveMaritimeData } from './maritimeAPIs';
+import { getRealTimePortData, getRealTimeDisruptions, getRealTimeVesselData } from './realTimeIntegration.js';
+import { fetchRealTimeMaritimeNews } from './newsIntegration.js';
+import { fetchRealTimeTariffData } from './tariffIntegration.js';
+import { getAggregatedPorts, getAggregatedDisruptions, getAggregatedTariffs } from './apiAggregator.js';
+import { getComprehensiveMaritimeData } from './maritimeAPIs.js';
 
 // Real-time Port entity using live data
 export const Port = {
@@ -12,7 +12,7 @@ export const Port = {
     try {
       // Use top 200 ports data for comprehensive coverage
       console.log('Loading top 200 world ports data...');
-      const { generateTop200WorldPorts } = await import('./top200Ports');
+      const { generateTop200WorldPorts } = await import('./top200Ports.js');
       const portsData = generateTop200WorldPorts();
       
       console.log('Sample port data structure:', portsData[0]);
@@ -142,9 +142,46 @@ export const Tariff = {
   list: async (sortBy = '-effectiveDate', limit = 50) => {
     try {
       // Use aggregated tariff data with caching
-      const aggregatedTariffs = await getAggregatedTariffs(limit);
+      const aggregatedTariffs = await getAggregatedTariffs(limit * 2); // Get more to account for filtering
       
-      let sortedTariffs = [...aggregatedTariffs];
+      // Filter out tariffs with null/missing/invalid values
+      const validTariffs = aggregatedTariffs.filter(tariff => {
+        // Must have a valid current rate
+        if (!tariff.currentRate || tariff.currentRate <= 0 || isNaN(tariff.currentRate)) {
+          return false;
+        }
+        
+        // Must have a valid title and description
+        if (!tariff.title || tariff.title.trim() === '' || tariff.title === 'N/A') {
+          return false;
+        }
+        
+        // Must have valid countries
+        if (!tariff.countries || !Array.isArray(tariff.countries) || tariff.countries.length === 0) {
+          return false;
+        }
+        
+        // Must have a valid effective date
+        if (!tariff.effectiveDate || isNaN(new Date(tariff.effectiveDate).getTime())) {
+          return false;
+        }
+        
+        // Must have valid trade impact data
+        if (!tariff.affectedTrade || tariff.affectedTrade <= 0 || isNaN(tariff.affectedTrade)) {
+          return false;
+        }
+        
+        // Must have valid status and priority
+        if (!tariff.status || !tariff.priority) {
+          return false;
+        }
+        
+        return true;
+      });
+      
+      console.log(`Filtered tariffs: ${aggregatedTariffs.length} -> ${validTariffs.length} (removed ${aggregatedTariffs.length - validTariffs.length} incomplete entries)`);
+      
+      let sortedTariffs = [...validTariffs];
       
       // Sort by effective date (descending) or priority
       if (sortBy === '-effectiveDate') {

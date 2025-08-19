@@ -6,6 +6,7 @@ import { Activity, AlertTriangle, XCircle, CheckCircle, MapPin } from "lucide-re
 export default function GlobalMap({ 
   ports = [], 
   disruptions = [], 
+  tariffs = [],
   selectedPort, 
   onPortClick, 
   center = [20, 0], 

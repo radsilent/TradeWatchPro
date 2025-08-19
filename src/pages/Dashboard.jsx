@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
-import { Port, Disruption } from "@/api/entities";
+import { Port, Disruption, Tariff } from "@/api/entities";
 import { InvokeLLM } from "@/api/integrations";
 import GlobalMap from "../components/dashboard/GlobalMap";
 import MetricsPanel from "../components/dashboard/MetricsPanel";
@@ -17,6 +17,7 @@ const safeParseDate = (dateString) => {
 export default function Dashboard() {
   const [ports, setPorts] = useState([]);
   const [disruptions, setDisruptions] = useState([]);
+  const [tariffs, setTariffs] = useState([]);
   const [selectedPort, setSelectedPort] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState([20, 0]);
@@ -47,15 +48,18 @@ export default function Dashboard() {
       // Skip cache clearing for faster loading
       console.log('Loading with cached data for better performance');
       
-      const [portsData, disruptionsData] = await Promise.all([
+      const [portsData, disruptionsData, tariffsData] = await Promise.all([
         Port.list('-strategic_importance', 200), // Plot all top 200 ports as requested
-        Disruption.list('-created_date', 20) // Keep disruptions low for performance
+        Disruption.list('-created_date', 20), // Keep disruptions low for performance
+        Tariff.list('-trade_value', 30) // Load top 30 tariffs for map visualization
       ]);
       
       console.log('Ports loaded:', portsData.length);
       console.log('Sample port data:', portsData.slice(0, 3));
       console.log('Disruptions loaded:', disruptionsData.length);
       console.log('Sample disruptions:', disruptionsData.slice(0, 3));
+      console.log('Tariffs loaded:', tariffsData.length);
+      console.log('Sample tariffs:', tariffsData.slice(0, 3));
       console.log('Active disruptions:', disruptionsData.filter(d => d.status === 'active').length);
       console.log('Maritime relevant disruptions:', disruptionsData.filter(d => {
         const title = (d.title || '').toLowerCase();
@@ -64,22 +68,27 @@ export default function Dashboard() {
       
       setPorts(portsData);
       setDisruptions(disruptionsData);
+      setTariffs(tariffsData);
 
+      // Always set up the date range from present to 2035
+      const currentDate = new Date();
+      const minDate = new Date(currentDate.getFullYear(), 0, 1); // Start of current year
+      const maxDate = new Date('2035-12-31'); // Extend to 2035 for AI-forecasted events
+      
+      console.log('Setting up DateSlicer with range:', minDate, 'to', maxDate);
+      setDateConfig({ min: minDate, max: maxDate });
+      setSelectedDateRange([minDate, maxDate]);
+      
+      // Optional: If disruptions have dates, we could adjust minDate to earliest disruption
       if (disruptionsData.length > 0) {
         const dates = disruptionsData.map(d => safeParseDate(d.start_date)).filter(Boolean);
         if (dates.length > 0) {
-          const minDate = min(dates);
-          // Extend to 2035 for AI-forecasted events
-          const maxDate = new Date('2035-12-31');
-          setDateConfig({ min: minDate, max: maxDate });
-          setSelectedDateRange([minDate, maxDate]);
+          const earliestDisruption = min(dates);
+          const adjustedMinDate = earliestDisruption < minDate ? earliestDisruption : minDate;
+          console.log('Adjusting minDate based on disruptions:', adjustedMinDate);
+          setDateConfig({ min: adjustedMinDate, max: maxDate });
+          setSelectedDateRange([adjustedMinDate, maxDate]);
         }
-      } else {
-        // Default range extending to 2035
-        const minDate = new Date('2024-01-01');
-        const maxDate = new Date('2035-12-31');
-        setDateConfig({ min: minDate, max: maxDate });
-        setSelectedDateRange([minDate, maxDate]);
       }
     } catch (error) {
       console.error("Error loading dashboard data:", error);
@@ -274,6 +283,7 @@ export default function Dashboard() {
             <GlobalMap
               ports={ports}
               disruptions={filteredDisruptions}
+              tariffs={tariffs}
               selectedPort={selectedPort}
               onPortClick={handlePortClick}
               center={mapCenter}
