@@ -383,6 +383,210 @@ export default function GlobalMap({
           circle.bindPopup(disruptionContent);
         });
       });
+
+      // Add tariff markers
+      console.log('Adding tariff markers for', tariffs.length, 'tariffs');
+      tariffs.forEach((tariff) => {
+        if (!tariff.countries || tariff.countries.length === 0) {
+          console.log('Skipping tariff due to missing countries:', tariff.title);
+          return;
+        }
+
+        // Map countries to coordinates
+        const countryCoordinates = {
+          'China': [35.8617, 104.1954],
+          'United States': [39.8283, -98.5795],
+          'European Union': [54.5260, 15.2551],
+          'Germany': [51.1657, 10.4515],
+          'Japan': [36.2048, 138.2529],
+          'Canada': [56.1304, -106.3468],
+          'Mexico': [23.6345, -102.5528],
+          'India': [20.5937, 78.9629],
+          'Vietnam': [14.0583, 108.2772],
+          'South Korea': [35.9078, 127.7669],
+          'Brazil': [-14.2350, -51.9253],
+          'Turkey': [38.9637, 35.2433],
+          'Taiwan': [23.6978, 120.9605],
+          'Thailand': [15.8700, 100.9925],
+          'Malaysia': [4.2105, 101.9758],
+          'Indonesia': [-0.7893, 113.9213],
+          'Philippines': [12.8797, 121.7740],
+          'Argentina': [-38.4161, -63.6167],
+          'Chile': [-35.6751, -71.5430],
+          'Australia': [-25.2744, 133.7751],
+          'New Zealand': [-40.9006, 174.8860],
+          'United Kingdom': [55.3781, -3.4360],
+          'France': [46.6034, 1.8883],
+          'Italy': [41.8719, 12.5674],
+          'Spain': [40.4637, -3.7492],
+          'Netherlands': [52.1326, 5.2913],
+          'Belgium': [50.5039, 4.4699],
+          'Russia': [61.5240, 105.3188],
+          'Saudi Arabia': [23.8859, 45.0792],
+          'UAE': [23.4241, 53.8478],
+          'Singapore': [1.3521, 103.8198],
+          'Hong Kong': [22.3193, 114.1694],
+          'Switzerland': [46.8182, 8.2275],
+          'Norway': [60.4720, 8.4689],
+          'Sweden': [60.1282, 18.6435],
+          'Denmark': [56.2639, 9.5018],
+          'Finland': [61.9241, 25.7482],
+          'Austria': [47.5162, 14.5501],
+          'Poland': [51.9194, 19.1451],
+          'Czech Republic': [49.8175, 15.4730],
+          'Hungary': [47.1625, 19.5033],
+          'Romania': [45.9432, 24.9668],
+          'Bulgaria': [42.7339, 25.4858],
+          'Greece': [39.0742, 21.8243],
+          'Portugal': [39.3999, -8.2245],
+          'Ireland': [53.4129, -8.2439],
+          'Israel': [31.0461, 34.8516],
+          'South Africa': [-30.5595, 22.9375],
+          'Egypt': [26.0975, 30.0444],
+          'Morocco': [31.7917, -7.0926],
+          'Nigeria': [9.0820, 8.6753],
+          'Kenya': [-0.0236, 37.9062],
+          'Ghana': [7.9465, -1.0232]
+        };
+
+        // Get coordinates for the first country (imposing country or main affected country)
+        const mainCountry = tariff.imposingCountry || tariff.countries[0];
+        const coords = countryCoordinates[mainCountry];
+        
+        if (!coords) {
+          console.log('No coordinates found for country:', mainCountry);
+          return;
+        }
+
+        // Create tariff icon based on severity/rate
+        const getTariffIcon = (rate) => {
+          const color = rate > 25 ? '#dc2626' : // Critical (red)
+                       rate > 15 ? '#ea580c' : // High (orange)
+                       rate > 10 ? '#d97706' : // Medium (amber)
+                       '#059669'; // Low (green)
+          
+          return L.divIcon({
+            html: `
+              <div style="
+                background-color: ${color}; 
+                width: 16px; 
+                height: 16px; 
+                border-radius: 50%; 
+                border: 3px solid white; 
+                box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 8px;
+                font-weight: bold;
+                color: white;
+              ">$</div>
+            `,
+            iconSize: [16, 16],
+            className: 'tariff-marker'
+          });
+        };
+
+        const tariffRate = tariff.currentRate || tariff.rate || 0;
+        const marker = L.marker(coords, {
+          icon: getTariffIcon(tariffRate)
+        }).addTo(map);
+
+        // Create tariff popup content
+        const tariffContent = document.createElement('div');
+        tariffContent.className = 'p-3 min-w-72 max-w-80';
+        
+        const priorityColor = tariff.priority === 'Critical' ? 'bg-red-100 text-red-800 border-red-200' :
+                             tariff.priority === 'High' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                             tariff.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                             'bg-green-100 text-green-800 border-green-200';
+
+        const statusColor = tariff.status === 'Active' ? 'bg-green-100 text-green-800 border-green-200' :
+                           tariff.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                           'bg-gray-100 text-gray-800 border-gray-200';
+
+        tariffContent.innerHTML = `
+          <div class="border-b border-gray-200 pb-3 mb-3">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <h3 class="font-bold text-slate-900 text-base mb-1">${tariff.title || 'Tariff Measure'}</h3>
+                <p class="text-slate-600 text-sm">${tariff.imposingCountry || mainCountry}</p>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium ${priorityColor}">
+                  ${tariff.priority || 'Medium'}
+                </span>
+                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium ${statusColor}">
+                  ${tariff.status || 'Active'}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="space-y-3">
+            <!-- Tariff Details -->
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span class="font-semibold text-slate-700">Tariff Rate:</span>
+                <p class="text-slate-900 text-lg font-bold text-red-600">${tariffRate.toFixed(1)}%</p>
+              </div>
+              ${tariff.change ? `
+                <div>
+                  <span class="font-semibold text-slate-700">Rate Change:</span>
+                  <p class="text-slate-900 ${tariff.change > 0 ? 'text-red-600' : 'text-green-600'}">${tariff.change > 0 ? '+' : ''}${tariff.change.toFixed(1)}%</p>
+                </div>
+              ` : ''}
+              ${tariff.affectedTrade ? `
+                <div>
+                  <span class="font-semibold text-slate-700">Trade Affected:</span>
+                  <p class="text-slate-900">$${tariff.affectedTrade.toFixed(1)}B</p>
+                </div>
+              ` : ''}
+              ${tariff.hsCode ? `
+                <div>
+                  <span class="font-semibold text-slate-700">HS Code:</span>
+                  <p class="text-slate-900">${tariff.hsCode}</p>
+                </div>
+              ` : ''}
+            </div>
+            
+            <!-- Affected Countries -->
+            ${tariff.countries && tariff.countries.length > 0 ? `
+              <div class="border-t border-gray-100 pt-3">
+                <h4 class="font-semibold text-slate-700 text-sm mb-2">Affected Countries</h4>
+                <div class="flex flex-wrap gap-1">
+                  ${tariff.countries.slice(0, 4).map(country => 
+                    `<span class="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 border border-blue-200">${country}</span>`
+                  ).join('')}
+                  ${tariff.countries.length > 4 ? `<span class="text-xs text-slate-500">+${tariff.countries.length - 4} more</span>` : ''}
+                </div>
+              </div>
+            ` : ''}
+            
+            <!-- Description -->
+            ${tariff.description ? `
+              <div class="border-t border-gray-100 pt-3">
+                <h4 class="font-semibold text-slate-700 text-sm mb-2">Description</h4>
+                <p class="text-xs text-slate-600">${tariff.description}</p>
+              </div>
+            ` : ''}
+            
+            <!-- Effective Date -->
+            ${tariff.effectiveDate ? `
+              <div class="border-t border-gray-100 pt-2">
+                <p class="text-xs text-slate-500">
+                  <svg class="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path>
+                  </svg>
+                  Effective: ${new Date(tariff.effectiveDate).toLocaleDateString()}
+                </p>
+              </div>
+            ` : ''}
+          </div>
+        `;
+
+        marker.bindPopup(tariffContent);
+      });
     };
 
     return <div ref={mapRef} className="w-full h-full rounded-lg" />;

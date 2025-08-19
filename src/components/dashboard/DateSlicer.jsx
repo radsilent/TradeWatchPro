@@ -28,21 +28,36 @@ export default function DateSlicer({ minDate, maxDate, value, onValueChange }) {
     ];
 
     return (
-        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-slate-900/80 via-slate-900/50 to-transparent z-[1000]">
-            <div className="max-w-4xl mx-auto bg-slate-800/50 backdrop-blur-lg border border-slate-700/50 rounded-lg p-4">
-                <div className="flex justify-between items-center text-sm font-semibold text-slate-100 mb-3 px-1">
-                    <span>{format(currentValue[0], 'MMM d, yyyy')}</span>
-                    <span className="text-slate-400">Date Range</span>
-                    <span>{format(currentValue[1], 'MMM d, yyyy')}</span>
+        <div className="w-full bg-slate-800/20 rounded-lg border border-slate-700/30 p-3">
+            {/* Compact inline date range display and slider */}
+            <div className="flex items-center gap-4">
+                {/* From date */}
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400 font-medium">From:</span>
+                    <div className="bg-slate-700/50 px-2 py-1 rounded text-sm font-semibold text-blue-400">
+                        {format(currentValue[0], 'MMM d, yyyy')}
+                    </div>
                 </div>
-                <Slider
-                    min={minTimestamp}
-                    max={maxTimestamp}
-                    step={86400} // one day in seconds
-                    value={valueTimestamps}
-                    onValueChange={handleValueChange}
-                    className="w-full"
-                />
+                
+                {/* Slider */}
+                <div className="flex-1 px-4">
+                    <Slider
+                        min={minTimestamp}
+                        max={maxTimestamp}
+                        step={86400} // one day in seconds
+                        value={valueTimestamps}
+                        onValueChange={handleValueChange}
+                        className="w-full"
+                    />
+                </div>
+                
+                {/* To date */}
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400 font-medium">To:</span>
+                    <div className="bg-slate-700/50 px-2 py-1 rounded text-sm font-semibold text-blue-400">
+                        {format(currentValue[1], 'MMM d, yyyy')}
+                    </div>
+                </div>
             </div>
         </div>
     );

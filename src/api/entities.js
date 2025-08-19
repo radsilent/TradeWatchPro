@@ -144,39 +144,45 @@ export const Tariff = {
       // Use aggregated tariff data with caching
       const aggregatedTariffs = await getAggregatedTariffs(limit * 2); // Get more to account for filtering
       
-      // Filter out tariffs with null/missing/invalid values
+      // Debug: Log first few tariffs to see their structure
+      console.log('Sample tariff data before filtering:', aggregatedTariffs.slice(0, 3));
+      
+      // Filter out tariffs with null/missing/invalid values (relaxed filtering)
       const validTariffs = aggregatedTariffs.filter(tariff => {
+        let isValid = true;
+        let reasons = [];
+        
         // Must have a valid current rate
         if (!tariff.currentRate || tariff.currentRate <= 0 || isNaN(tariff.currentRate)) {
-          return false;
+          reasons.push('invalid currentRate');
+          isValid = false;
         }
         
-        // Must have a valid title and description
+        // Must have a valid title
         if (!tariff.title || tariff.title.trim() === '' || tariff.title === 'N/A') {
-          return false;
+          reasons.push('invalid title');
+          isValid = false;
         }
         
-        // Must have valid countries
-        if (!tariff.countries || !Array.isArray(tariff.countries) || tariff.countries.length === 0) {
-          return false;
+        // Must have valid countries (relaxed - allow single country string or array)
+        if (!tariff.countries && !tariff.country) {
+          reasons.push('no countries');
+          isValid = false;
         }
         
-        // Must have a valid effective date
-        if (!tariff.effectiveDate || isNaN(new Date(tariff.effectiveDate).getTime())) {
-          return false;
+        // Must have a valid effective date (relaxed - allow string dates)
+        if (!tariff.effectiveDate) {
+          reasons.push('no effectiveDate');
+          isValid = false;
         }
         
-        // Must have valid trade impact data
-        if (!tariff.affectedTrade || tariff.affectedTrade <= 0 || isNaN(tariff.affectedTrade)) {
-          return false;
+        // Relaxed: Don't require affectedTrade, status, or priority for now
+        
+        if (!isValid) {
+          console.log(`Filtering out tariff ${tariff.id || tariff.title}: ${reasons.join(', ')}`);
         }
         
-        // Must have valid status and priority
-        if (!tariff.status || !tariff.priority) {
-          return false;
-        }
-        
-        return true;
+        return isValid;
       });
       
       console.log(`Filtered tariffs: ${aggregatedTariffs.length} -> ${validTariffs.length} (removed ${aggregatedTariffs.length - validTariffs.length} incomplete entries)`);

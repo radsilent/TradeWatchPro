@@ -31,6 +31,12 @@ export default function ImpactAnalysis() {
       setPorts(portsData);
       setDisruptions(disruptionsData);
       setTariffs(tariffsData);
+      
+      console.log('Impact Analysis Data Loaded:', {
+        ports: portsData.length,
+        disruptions: disruptionsData.length,
+        tariffs: tariffsData.length
+      });
     } catch (error) {
       console.error("Error loading impact data:", error);
     }
@@ -350,6 +356,473 @@ export default function ImpactAnalysis() {
   const getSeverityScore = (severity) => {
     const scores = { critical: 25, high: 15, medium: 8, low: 3 };
     return scores[severity] || 5;
+  };
+
+  // Comprehensive Tariff-Vessel-Port Impact Analysis
+  const getTariffVesselPortAnalysis = () => {
+    const analysis = {
+      tariffPortImpacts: [],
+      vesselRoutingImpacts: [],
+      portCapacityEffects: [],
+      crossImpactMatrix: [],
+      economicRippleEffects: [],
+      timeSeriesProjections: []
+    };
+
+    // Detailed tariff impact on ports
+    tariffs.forEach(tariff => {
+      const affectedCountries = tariff.countries || [];
+      
+      affectedCountries.forEach(country => {
+        const countryPorts = ports.filter(port => 
+          port.country?.toLowerCase().includes(country.toLowerCase()) ||
+          port.name?.toLowerCase().includes(country.toLowerCase())
+        );
+
+        countryPorts.forEach(port => {
+          const alternatives = findAlternativePorts(port, ports);
+          const costIncrease = (tariff.currentRate / 100) * (port.annual_throughput || 1000000);
+          const volumeShift = Math.min(costIncrease * 0.1, port.annual_throughput * 0.3);
+
+          analysis.tariffPortImpacts.push({
+            tariffId: tariff.id,
+            tariffTitle: tariff.title,
+            tariffRate: `${tariff.currentRate}%`,
+            portName: port.name,
+            portCountry: port.country,
+            portThroughput: port.annual_throughput || 0,
+            expectedVolumeShift: Math.round(volumeShift),
+            costImpactUSD: Math.round(costIncrease * 100),
+            alternativePorts: alternatives.slice(0, 3).map(alt => ({
+              name: alt.name,
+              country: alt.country,
+              distance: calculateDistance(port, alt),
+              additionalCost: calculateAdditionalCost(port, alt)
+            })),
+            competitivenessChange: tariff.currentRate > 15 ? 'Severe' : tariff.currentRate > 8 ? 'Moderate' : 'Mild',
+            timeToImpact: '2-6 months',
+            recoveryTime: tariff.currentRate > 20 ? '18-36 months' : '6-18 months'
+          });
+        });
+      });
+    });
+
+    // Vessel routing optimization under tariff pressure
+    const majorRoutes = [
+      { from: 'Shanghai', to: 'Los Angeles', vessels: 450, avgTEU: 18000 },
+      { from: 'Shenzhen', to: 'Long Beach', vessels: 380, avgTEU: 16000 },
+      { from: 'Singapore', to: 'Rotterdam', vessels: 320, avgTEU: 20000 },
+      { from: 'Busan', to: 'Hamburg', vessels: 280, avgTEU: 15000 },
+      { from: 'Hong Kong', to: 'New York', vessels: 250, avgTEU: 14000 },
+      { from: 'Ningbo', to: 'Savannah', vessels: 220, avgTEU: 17000 },
+      { from: 'Qingdao', to: 'Seattle', vessels: 200, avgTEU: 16000 },
+      { from: 'Tianjin', to: 'Oakland', vessels: 180, avgTEU: 15000 }
+    ];
+
+    majorRoutes.forEach(route => {
+      const relevantTariffs = tariffs.filter(tariff => 
+        tariff.countries?.some(country => 
+          route.from.toLowerCase().includes(country.toLowerCase()) ||
+          route.to.toLowerCase().includes(country.toLowerCase())
+        )
+      );
+
+      if (relevantTariffs.length > 0) {
+        const avgTariffRate = relevantTariffs.reduce((sum, t) => sum + t.currentRate, 0) / relevantTariffs.length;
+        const routeValue = route.vessels * route.avgTEU * 1500; // Estimated value per TEU
+        const tariffCost = routeValue * (avgTariffRate / 100);
+
+        analysis.vesselRoutingImpacts.push({
+          route: `${route.from} → ${route.to}`,
+          monthlyVessels: route.vessels,
+          avgCapacity: route.avgTEU,
+          routeValue: Math.round(routeValue / 1000000), // In millions
+          applicableTariffs: relevantTariffs.length,
+          avgTariffRate: Math.round(avgTariffRate * 10) / 10,
+          additionalCost: Math.round(tariffCost / 1000000), // In millions
+          alternativeRoutes: generateAlternativeRoutes(route),
+          diversionProbability: avgTariffRate > 15 ? 'High' : avgTariffRate > 8 ? 'Medium' : 'Low',
+          impactedCargo: estimateImpactedCargo(route, avgTariffRate)
+        });
+      }
+    });
+
+    // Port capacity and congestion effects
+    const highVolumePortsWithTariffExposure = ports
+      .filter(port => port.annual_throughput > 5000000)
+      .map(port => {
+        const exposedTariffs = tariffs.filter(tariff =>
+          tariff.countries?.some(country =>
+            port.country?.toLowerCase().includes(country.toLowerCase())
+          )
+        );
+
+        if (exposedTariffs.length > 0) {
+          const avgExposure = exposedTariffs.reduce((sum, t) => sum + t.currentRate, 0) / exposedTariffs.length;
+          const expectedVolumeChange = avgExposure > 15 ? -0.25 : avgExposure > 8 ? -0.15 : -0.05;
+          
+          return {
+            portName: port.name,
+            country: port.country,
+            currentThroughput: port.annual_throughput,
+            tariffExposure: Math.round(avgExposure * 10) / 10,
+            exposedTariffs: exposedTariffs.length,
+            projectedVolumeChange: Math.round(expectedVolumeChange * 100),
+            newThroughput: Math.round(port.annual_throughput * (1 + expectedVolumeChange)),
+            capacityUtilization: calculateCapacityUtilization(port, expectedVolumeChange),
+            congestionRisk: assessCongestionRisk(port, expectedVolumeChange),
+            infrastructureStrain: calculateInfrastructureStrain(port, expectedVolumeChange)
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    analysis.portCapacityEffects = highVolumePortsWithTariffExposure;
+
+    // Cross-impact matrix showing interconnected effects
+    analysis.crossImpactMatrix = generateCrossImpactMatrix(tariffs, disruptions, ports);
+
+    // Economic ripple effects
+    analysis.economicRippleEffects = calculateEconomicRippleEffects(analysis);
+
+    // Time series projections for next 5 years
+    analysis.timeSeriesProjections = generateTimeSeriesProjections(analysis);
+
+    return analysis;
+  };
+
+  // Advanced Cross-Impact Analysis Functions
+  const getCrossImpactAnalysis = () => {
+    const analysis = {
+      tariffPortImpacts: [],
+      disruptionVesselImpacts: [],
+      cascadingEffects: [],
+      compoundRisks: [],
+      adaptationStrategies: []
+    };
+
+    // Analyze how tariffs affect specific ports
+    tariffs.forEach(tariff => {
+      if (tariff.countries && Array.isArray(tariff.countries)) {
+        tariff.countries.forEach(country => {
+          const affectedPorts = ports.filter(port => 
+            port.country === country || 
+            (port.region && getRegionFromCountry(country) === port.region)
+          );
+
+          affectedPorts.forEach(port => {
+            const impact = {
+              tariffId: tariff.id,
+              portId: port.id,
+              portName: port.name,
+              country: country,
+              tariffRate: tariff.currentRate,
+              commodity: tariff.products?.[0] || 'Various',
+              estimatedVolumeReduction: Math.min(tariff.currentRate * 2, 85), // Rough estimate
+              alternativeRoutes: findAlternativePorts(port, country),
+              timeToReroute: calculateRerouteTime(port, tariff.currentRate),
+              economicImpact: calculatePortEconomicImpact(port, tariff),
+              vesselDiversions: estimateVesselDiversions(port, tariff.currentRate)
+            };
+            analysis.tariffPortImpacts.push(impact);
+          });
+        });
+      }
+    });
+
+    // Analyze how disruptions affect vessel operations
+    disruptions.forEach(disruption => {
+      const affectedRegions = disruption.affected_regions || disruption.affectedRegions || [];
+      affectedRegions.forEach(region => {
+        const regionalPorts = ports.filter(port => 
+          port.region === region || 
+          getRegionFromCountry(port.country) === region
+        );
+
+        regionalPorts.forEach(port => {
+          const vesselImpact = {
+            disruptionId: disruption.id,
+            portId: port.id,
+            portName: port.name,
+            disruptionType: disruption.type || 'Maritime Incident',
+            severity: disruption.severity,
+            estimatedDelays: calculateVesselDelays(disruption.severity, port.strategic_importance),
+            routeChanges: estimateRouteChanges(disruption, port),
+            fuelCostIncrease: calculateFuelCostIncrease(disruption.severity),
+            capacityReduction: estimateCapacityReduction(disruption, port),
+            alternativeOptions: findAlternativeRoutes(port, region)
+          };
+          analysis.disruptionVesselImpacts.push(vesselImpact);
+        });
+      });
+    });
+
+    // Identify cascading effects
+    analysis.cascadingEffects = identifyCascadingEffects();
+    
+    // Calculate compound risks
+    analysis.compoundRisks = calculateCompoundRisks();
+
+    // Generate adaptation strategies
+    analysis.adaptationStrategies = generateAdaptationStrategies();
+
+    return analysis;
+  };
+
+  const findAlternativePorts = (affectedPort, country) => {
+    return ports
+      .filter(port => 
+        port.country !== country && 
+        port.region === affectedPort.region &&
+        port.strategic_importance >= (affectedPort.strategic_importance - 20)
+      )
+      .slice(0, 3)
+      .map(port => ({
+        name: port.name,
+        country: port.country,
+        capacity: port.container_volume || 'N/A',
+        distance: Math.floor(Math.random() * 500) + 200 // Simulated distance
+      }));
+  };
+
+  const calculateRerouteTime = (port, tariffRate) => {
+    const baseTime = 7; // days
+    const complexityFactor = (100 - port.strategic_importance) / 100;
+    const tariffFactor = tariffRate / 100;
+    return Math.ceil(baseTime * (1 + complexityFactor + tariffFactor));
+  };
+
+  const calculatePortEconomicImpact = (port, tariff) => {
+    const baseImpact = port.strategic_importance * 100000; // Base economic activity
+    const tariffMultiplier = tariff.currentRate / 100;
+    const tradeReduction = baseImpact * tariffMultiplier * 0.6; // Estimated trade reduction
+    return {
+      dailyLoss: Math.floor(tradeReduction / 365),
+      monthlyLoss: Math.floor(tradeReduction / 12),
+      annualLoss: Math.floor(tradeReduction),
+      jobsAtRisk: Math.floor(tradeReduction / 150000), // Rough jobs per economic activity
+      businessesAffected: Math.floor(tradeReduction / 500000)
+    };
+  };
+
+  const estimateVesselDiversions = (port, tariffRate) => {
+    const baseVessels = Math.floor(port.strategic_importance / 5); // Vessels per day estimate
+    const diversionRate = Math.min(tariffRate / 100 * 0.7, 0.8); // Max 80% diversion
+    return {
+      dailyDiversions: Math.floor(baseVessels * diversionRate),
+      weeklyDiversions: Math.floor(baseVessels * diversionRate * 7),
+      affectedCarriers: Math.ceil(baseVessels * diversionRate / 3)
+    };
+  };
+
+  const calculateVesselDelays = (severity, portImportance) => {
+    const severityMultiplier = { critical: 3, high: 2, medium: 1.5, low: 1 };
+    const baseDelay = (severityMultiplier[severity] || 1) * 24; // hours
+    const portFactor = (100 - portImportance) / 100;
+    return {
+      averageDelay: Math.ceil(baseDelay * (1 + portFactor)),
+      maxDelay: Math.ceil(baseDelay * (1 + portFactor) * 2),
+      queueLength: Math.ceil(portImportance / 10 * severityMultiplier[severity])
+    };
+  };
+
+  const estimateRouteChanges = (disruption, port) => {
+    const changes = [];
+    if (disruption.severity === 'critical' || disruption.severity === 'high') {
+      changes.push({
+        type: 'Complete Rerouting',
+        probability: 85,
+        additionalDistance: Math.floor(Math.random() * 1000) + 500,
+        additionalTime: Math.floor(Math.random() * 7) + 3
+      });
+    } else {
+      changes.push({
+        type: 'Partial Rerouting',
+        probability: 45,
+        additionalDistance: Math.floor(Math.random() * 300) + 100,
+        additionalTime: Math.floor(Math.random() * 3) + 1
+      });
+    }
+    return changes;
+  };
+
+  const calculateFuelCostIncrease = (severity) => {
+    const increases = { critical: 35, high: 25, medium: 15, low: 8 };
+    return increases[severity] || 10;
+  };
+
+  const estimateCapacityReduction = (disruption, port) => {
+    const severityImpact = { critical: 0.6, high: 0.4, medium: 0.25, low: 0.1 };
+    const baseCapacity = port.strategic_importance * 1000; // TEU estimate
+    const reduction = baseCapacity * (severityImpact[disruption.severity] || 0.1);
+    return {
+      reducedCapacity: Math.floor(reduction),
+      percentageReduction: Math.floor((severityImpact[disruption.severity] || 0.1) * 100),
+      estimatedDuration: getDurationEstimate(disruption.severity)
+    };
+  };
+
+  const getDurationEstimate = (severity) => {
+    const durations = { 
+      critical: '2-8 weeks', 
+      high: '1-4 weeks', 
+      medium: '3-10 days', 
+      low: '1-3 days' 
+    };
+    return durations[severity] || '1-7 days';
+  };
+
+  const findAlternativeRoutes = (port, region) => {
+    const alternatives = [
+      { route: 'Northern Route', viability: 'High', additionalCost: '15%', timeIncrease: '3-5 days' },
+      { route: 'Southern Route', viability: 'Medium', additionalCost: '25%', timeIncrease: '5-8 days' },
+      { route: 'Intermodal Alternative', viability: 'Low', additionalCost: '40%', timeIncrease: '7-14 days' }
+    ];
+    return alternatives.slice(0, Math.floor(Math.random() * 3) + 1);
+  };
+
+  const identifyCascadingEffects = () => {
+    const effects = [];
+    
+    // Port congestion leading to vessel delays
+    const congestedPorts = ports.filter(port => port.disruption_level === 'high');
+    congestedPorts.forEach(port => {
+      effects.push({
+        trigger: `Port Congestion at ${port.name}`,
+        effect: 'Vessel Queue Formation',
+        magnitude: 'High',
+        timeframe: '1-2 weeks',
+        secondaryEffects: [
+          'Increased freight rates',
+          'Container shortages',
+          'Supply chain delays',
+          'Alternative port overload'
+        ]
+      });
+    });
+
+    // High tariffs causing trade route shifts
+    const highTariffs = tariffs.filter(tariff => tariff.currentRate > 20);
+    highTariffs.forEach(tariff => {
+      effects.push({
+        trigger: `High Tariff on ${tariff.products?.[0] || 'Goods'} (${tariff.currentRate}%)`,
+        effect: 'Trade Route Diversion',
+        magnitude: 'Medium',
+        timeframe: '2-6 months',
+        secondaryEffects: [
+          'New port capacity strain',
+          'Shipping line restructuring',
+          'Regional price volatility',
+          'Supply chain reconfiguration'
+        ]
+      });
+    });
+
+    return effects.slice(0, 10); // Top 10 cascading effects
+  };
+
+  const calculateCompoundRisks = () => {
+    const risks = [];
+    
+    // Identify ports with multiple risk factors
+    ports.forEach(port => {
+      const portTariffs = tariffs.filter(tariff => 
+        tariff.countries && tariff.countries.includes(port.country)
+      );
+      const portDisruptions = disruptions.filter(disruption => 
+        disruption.affected_regions?.some(region => 
+          region === port.region || getRegionFromCountry(port.country) === region
+        )
+      );
+
+      if (portTariffs.length > 0 && portDisruptions.length > 0) {
+        const riskScore = calculateRiskScore(portTariffs, portDisruptions, port);
+        risks.push({
+          location: port.name,
+          country: port.country,
+          riskScore: riskScore,
+          riskLevel: getRiskLevel(riskScore),
+          factors: {
+            tariffCount: portTariffs.length,
+            disruptionCount: portDisruptions.length,
+            strategicImportance: port.strategic_importance,
+            avgTariffRate: portTariffs.reduce((sum, t) => sum + t.currentRate, 0) / portTariffs.length
+          },
+          mitigationPriority: riskScore > 70 ? 'Critical' : riskScore > 50 ? 'High' : 'Medium'
+        });
+      }
+    });
+
+    return risks.sort((a, b) => b.riskScore - a.riskScore).slice(0, 15);
+  };
+
+  const calculateRiskScore = (tariffs, disruptions, port) => {
+    const tariffScore = tariffs.reduce((sum, t) => sum + t.currentRate, 0) / 4; // Normalize
+    const disruptionScore = disruptions.reduce((sum, d) => sum + getSeverityScore(d.severity), 0);
+    const portVulnerability = (100 - port.strategic_importance) * 0.3; // Lower importance = higher vulnerability
+    
+    return Math.min(100, tariffScore + disruptionScore + portVulnerability);
+  };
+
+  const getRiskLevel = (score) => {
+    if (score >= 80) return 'Critical';
+    if (score >= 60) return 'High';
+    if (score >= 40) return 'Medium';
+    return 'Low';
+  };
+
+  const generateAdaptationStrategies = () => {
+    return [
+      {
+        strategy: 'Diversified Port Networks',
+        description: 'Establish partnerships with multiple ports across different regions to reduce dependency on single locations.',
+        applicability: 'High-volume shippers',
+        timeframe: '6-18 months',
+        costImpact: 'Medium',
+        effectiveness: 85
+      },
+      {
+        strategy: 'Dynamic Route Optimization',
+        description: 'Implement AI-driven route optimization systems that can rapidly adjust to tariff changes and disruptions.',
+        applicability: 'Shipping lines & logistics providers',
+        timeframe: '3-12 months',
+        costImpact: 'High',
+        effectiveness: 92
+      },
+      {
+        strategy: 'Inventory Buffer Strategies',
+        description: 'Maintain strategic inventory buffers at key locations to absorb supply chain shocks.',
+        applicability: 'Manufacturers & retailers',
+        timeframe: '2-6 months',
+        costImpact: 'High',
+        effectiveness: 78
+      },
+      {
+        strategy: 'Trade Agreement Optimization',
+        description: 'Leverage preferential trade agreements and free trade zones to minimize tariff exposure.',
+        applicability: 'All importers/exporters',
+        timeframe: '1-4 months',
+        costImpact: 'Low',
+        effectiveness: 65
+      },
+      {
+        strategy: 'Supply Chain Regionalization',
+        description: 'Shift to more regional supply chains to reduce exposure to global disruptions and tariffs.',
+        applicability: 'Multinational corporations',
+        timeframe: '12-36 months',
+        costImpact: 'Very High',
+        effectiveness: 88
+      },
+      {
+        strategy: 'Real-Time Monitoring Systems',
+        description: 'Deploy advanced monitoring and early warning systems for proactive risk management.',
+        applicability: 'All stakeholders',
+        timeframe: '2-8 months',
+        costImpact: 'Medium',
+        effectiveness: 82
+      }
+    ];
   };
 
   const getImpactColor = (value) => {
@@ -842,4 +1315,105 @@ export default function ImpactAnalysis() {
       </div>
     </div>
   );
+}
+
+// Helper functions for the new comprehensive analysis
+function calculateDistance(port1, port2) {
+  // Simple distance calculation (in practice would use great circle distance)
+  const lat1 = port1.coordinates?.lat || port1.latitude || 0;
+  const lon1 = port1.coordinates?.lng || port1.longitude || 0;
+  const lat2 = port2.coordinates?.lat || port2.latitude || 0;
+  const lon2 = port2.coordinates?.lng || port2.longitude || 0;
+  
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return Math.round(R * c);
+}
+
+function calculateAdditionalCost(port1, port2) {
+  const distance = calculateDistance(port1, port2);
+  const costPerKm = 0.8; // USD per km per TEU
+  return Math.round(distance * costPerKm);
+}
+
+function generateAlternativeRoutes(route) {
+  const alternatives = {
+    'Shanghai → Los Angeles': ['Shanghai → Seattle → Los Angeles', 'Shanghai → Vancouver → Los Angeles'],
+    'Singapore → Rotterdam': ['Singapore → Suez → Rotterdam', 'Singapore → Cape → Rotterdam'],
+    'Hong Kong → New York': ['Hong Kong → Los Angeles → New York', 'Hong Kong → Vancouver → New York']
+  };
+  return alternatives[route.route] || ['Alternative route analysis pending'];
+}
+
+function estimateImpactedCargo(route, tariffRate) {
+  const categories = ['Electronics', 'Textiles', 'Machinery', 'Chemicals', 'Consumer Goods'];
+  return categories.slice(0, Math.ceil(tariffRate / 5)).map(cat => ({
+    category: cat,
+    volumeAffected: Math.round(route.avgTEU * (tariffRate / 100) * Math.random() * 1000),
+    valueImpact: Math.round(Math.random() * 50 + 10) // Million USD
+  }));
+}
+
+function calculateCapacityUtilization(port, volumeChange) {
+  const baseUtilization = 0.75; // Assume 75% base utilization
+  const newUtilization = baseUtilization * (1 + volumeChange);
+  return Math.round(Math.max(0.1, Math.min(1.0, newUtilization)) * 100);
+}
+
+function assessCongestionRisk(port, volumeChange) {
+  const utilizationChange = volumeChange;
+  if (utilizationChange < -0.1) return 'Reduced';
+  if (utilizationChange > 0.1) return 'High';
+  return 'Stable';
+}
+
+function calculateInfrastructureStrain(port, volumeChange) {
+  const strainLevels = ['Minimal', 'Low', 'Moderate', 'High', 'Critical'];
+  const baseStrain = 2; // Moderate
+  const adjustment = Math.round(volumeChange * 10);
+  const newStrain = Math.max(0, Math.min(4, baseStrain + adjustment));
+  return strainLevels[newStrain];
+}
+
+function generateCrossImpactMatrix(tariffs, disruptions, ports) {
+  const matrix = [];
+  
+  // Sample cross-impact relationships
+  const relationships = [
+    { factor1: 'US-China Tariffs', factor2: 'Shanghai Port', impact: 'High Negative', strength: 85 },
+    { factor1: 'Suez Canal Disruption', factor2: 'Singapore Port', impact: 'High Positive', strength: 78 },
+    { factor1: 'EU Carbon Tax', factor2: 'European Ports', impact: 'Moderate Negative', strength: 65 },
+    { factor1: 'Red Sea Tensions', factor2: 'Mediterranean Routes', impact: 'High Negative', strength: 92 },
+    { factor1: 'India Textile Tariffs', factor2: 'Bangladesh Ports', impact: 'Moderate Positive', strength: 58 }
+  ];
+  
+  return relationships;
+}
+
+function calculateEconomicRippleEffects(analysis) {
+  return {
+    primaryEffects: analysis.tariffPortImpacts.length + analysis.vesselRoutingImpacts.length,
+    secondaryEffects: Math.round(analysis.tariffPortImpacts.length * 1.5),
+    tertiaryEffects: Math.round(analysis.tariffPortImpacts.length * 0.8),
+    totalEconomicImpact: Math.round(Math.random() * 500 + 200), // Billion USD
+    affectedCountries: Math.min(50, analysis.tariffPortImpacts.length * 2),
+    timeToFullImpact: '12-18 months'
+  };
+}
+
+function generateTimeSeriesProjections(analysis) {
+  const years = [2024, 2025, 2026, 2027, 2028, 2029];
+  return years.map(year => ({
+    year,
+    tariffImpact: Math.round(Math.random() * 100 + 50),
+    portEfficiency: Math.round(Math.random() * 20 + 80),
+    vesselDelays: Math.round(Math.random() * 15 + 5),
+    costIncrease: Math.round(Math.random() * 25 + 10),
+    routeDiversification: Math.round(Math.random() * 30 + 20)
+  }));
 }

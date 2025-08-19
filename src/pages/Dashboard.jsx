@@ -8,10 +8,39 @@ import DisruptionTimeline from "../components/dashboard/DisruptionTimeline";
 import DateSlicer from "../components/dashboard/DateSlicer";
 import { min, max, isWithinInterval, parseISO, isValid } from "date-fns";
 
-const safeParseDate = (dateString) => {
-  if (!dateString) return null;
-  const date = parseISO(dateString);
-  return isValid(date) ? date : null;
+const safeParseDate = (dateInput) => {
+  try {
+    if (!dateInput) return null;
+    
+    // If it's already a Date object, validate and return it
+    if (dateInput instanceof Date) {
+      return isValid(dateInput) ? dateInput : null;
+    }
+    
+    // If it's a string, try to parse it
+    if (typeof dateInput === 'string' && dateInput.trim() !== '') {
+      try {
+        const date = parseISO(dateInput);
+        return isValid(date) ? date : null;
+      } catch (error) {
+        console.warn('Failed to parse date string:', dateInput, error);
+        return null;
+      }
+    }
+    
+    // If it's a number (timestamp), convert to Date
+    if (typeof dateInput === 'number' && !isNaN(dateInput)) {
+      const date = new Date(dateInput);
+      return isValid(date) ? date : null;
+    }
+    
+    // For any other type, return null
+    console.warn('Unexpected date input type:', typeof dateInput, dateInput);
+    return null;
+  } catch (error) {
+    console.warn('Error in safeParseDate:', error, 'Input:', dateInput);
+    return null;
+  }
 };
 
 export default function Dashboard() {
@@ -34,9 +63,39 @@ export default function Dashboard() {
       return disruptions;
     }
     const [start, end] = selectedDateRange;
-    return disruptions.filter(d => {
-      const disruptionDate = safeParseDate(d.start_date);
-      return disruptionDate && isWithinInterval(disruptionDate, { start, end });
+    
+    console.log('Filtering disruptions with date range:', start, 'to', end);
+    console.log('Total disruptions to filter:', disruptions.length);
+    
+    return disruptions.filter((d, index) => {
+      try {
+        // Try multiple date fields for better coverage
+        const dateFields = [d.start_date, d.date, d.created_date, d.timestamp];
+        let disruptionDate = null;
+        
+        for (const field of dateFields) {
+          if (field) {
+            disruptionDate = safeParseDate(field);
+            if (disruptionDate) break;
+          }
+        }
+        
+        if (!disruptionDate) {
+          // If no valid date found, include current disruptions but exclude forecasted ones
+          const isCurrentDisruption = !d.type?.includes('forecast') && !d.status?.includes('predicted');
+          console.log(`Disruption ${index} has no valid date, including current: ${isCurrentDisruption}`, d.title);
+          return isCurrentDisruption;
+        }
+        
+        const isInRange = isWithinInterval(disruptionDate, { start, end });
+        if (index < 5) { // Log first few for debugging
+          console.log(`Disruption ${index}: ${d.title}, Date: ${disruptionDate}, In range: ${isInRange}`);
+        }
+        return isInRange;
+      } catch (error) {
+        console.warn(`Error filtering disruption ${index}:`, error, d);
+        return false;
+      }
     });
   }, [disruptions, selectedDateRange]);
 
@@ -268,6 +327,16 @@ export default function Dashboard() {
 
   return (
     <div className="h-screen flex flex-col bg-slate-900">
+      {/* Loading notification */}
+      {isLoading && (
+        <div className="bg-blue-900/20 border-b border-blue-800/30 px-6 py-3">
+          <div className="flex items-center justify-center text-sm text-blue-400">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mr-2"></div>
+            Loading real-time trade data, this may take a minute...
+          </div>
+        </div>
+      )}
+      
       <div className="flex-1 grid grid-cols-1 xl:grid-cols-4 gap-6 p-6">
         {/* Main content area */}
         <div className="xl:col-span-3 space-y-6">
@@ -278,8 +347,8 @@ export default function Dashboard() {
             isLoading={isLoading}
           />
 
-          {/* Global Map */}
-          <div className="relative h-96 lg:h-[600px]">
+          {/* Global Map - Main content taking most of the space */}
+          <div className="relative h-[70vh] lg:h-[80vh]">
             <GlobalMap
               ports={ports}
               disruptions={filteredDisruptions}
@@ -290,16 +359,31 @@ export default function Dashboard() {
               zoom={mapZoom}
               isLoading={isLoading}
             />
-            
-            {/* Date Slicer */}
-            <div className="absolute bottom-4 left-4 right-4 z-10">
-              <DateSlicer
-                minDate={dateConfig.min}
-                maxDate={dateConfig.max}
-                value={selectedDateRange}
-                onValueChange={handleDateRangeChange}
-              />
+          </div>
+
+          {/* Compact Date Range Filter - Minimal space usage */}
+          <div className="mt-4 mb-6">
+            <div className="flex items-center gap-4 mb-2">
+              <h3 className="text-lg font-semibold text-slate-100">Date Filter</h3>
+              <div className="flex items-center gap-4 text-xs text-slate-400">
+                <span>Current: {filteredDisruptions.filter(d => {
+                  const disruptionDate = safeParseDate(d.start_date || d.date);
+                  return disruptionDate && disruptionDate <= new Date();
+                }).length}</span>
+                <span>Forecasted: {filteredDisruptions.filter(d => {
+                  const disruptionDate = safeParseDate(d.start_date || d.date);
+                  return disruptionDate && disruptionDate > new Date();
+                }).length}</span>
+                <span>Total: {filteredDisruptions.length}</span>
+              </div>
             </div>
+            
+            <DateSlicer
+              minDate={dateConfig.min}
+              maxDate={dateConfig.max}
+              value={selectedDateRange}
+              onValueChange={handleDateRangeChange}
+            />
           </div>
         </div>
 
@@ -328,43 +412,66 @@ export default function Dashboard() {
               </a>
             </div>
             
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-                <div>
-                  <p className="text-slate-100 font-medium text-sm">US-China Steel Tariffs</p>
-                  <p className="text-slate-400 text-xs">Active • High Priority</p>
+            {isLoading ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-center p-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
                 </div>
-                <div className="text-right">
-                  <p className="text-red-400 font-bold">25.0%</p>
-                  <p className="text-red-400 text-xs">+15.0%</p>
-                </div>
+                <p className="text-slate-400 text-xs text-center">Loading real-time tariff data...</p>
               </div>
-              
-              <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-                <div>
-                  <p className="text-slate-100 font-medium text-sm">EU Carbon Border Tax</p>
-                  <p className="text-slate-400 text-xs">Active • High Priority</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-orange-400 font-bold">18.5%</p>
-                  <p className="text-orange-400 text-xs">+18.5%</p>
-                </div>
+            ) : (
+              <div className="space-y-3">
+                {tariffs.slice(0, 3).map((tariff, index) => {
+                  const getPriorityColor = (priority) => {
+                    switch(priority?.toLowerCase()) {
+                      case 'critical': return 'text-red-400';
+                      case 'high': return 'text-orange-400';
+                      case 'medium': return 'text-yellow-400';
+                      default: return 'text-green-400';
+                    }
+                  };
+
+                  const getRateColor = (change) => {
+                    if (change > 0) return 'text-red-400';
+                    if (change < 0) return 'text-green-400';
+                    return 'text-slate-400';
+                  };
+
+                  const changeSign = tariff.change > 0 ? '+' : '';
+                  
+                  return (
+                    <div key={tariff.id || index} className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
+                      <div>
+                        <p className="text-slate-100 font-medium text-sm">
+                          {tariff.title || tariff.name || 'Tariff Update'}
+                        </p>
+                        <p className="text-slate-400 text-xs">
+                          {tariff.status || 'Active'} • {tariff.priority || 'Medium'} Priority
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-bold ${getPriorityColor(tariff.priority)}`}>
+                          {typeof tariff.currentRate === 'number' ? `${tariff.currentRate.toFixed(1)}%` : `${tariff.rate || 0}%`}
+                        </p>
+                        <p className={`text-xs ${getRateColor(tariff.change)}`}>
+                          {tariff.change ? `${changeSign}${Math.abs(tariff.change).toFixed(1)}%` : '0%'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {tariffs.length === 0 && (
+                  <div className="text-center py-4">
+                    <p className="text-slate-400 text-sm">No tariff data available</p>
+                    <p className="text-slate-500 text-xs mt-1">Real-time data may take a moment to load</p>
+                  </div>
+                )}
               </div>
-              
-              <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-                <div>
-                  <p className="text-slate-100 font-medium text-sm">UK-India Textiles</p>
-                  <p className="text-slate-400 text-xs">Active • Medium Priority</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-green-400 font-bold">5.5%</p>
-                  <p className="text-green-400 text-xs">-6.5%</p>
-                </div>
-              </div>
-            </div>
+            )}
             
             <div className="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between text-sm">
-              <span className="text-slate-400">Total Tracked: 10 tariffs</span>
+              <span className="text-slate-400">Total Tracked: {tariffs.length} tariffs</span>
               <span className="text-blue-400">Real-time updates</span>
             </div>
           </div>

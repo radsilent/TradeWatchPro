@@ -1,5 +1,10 @@
 import React from 'react';
 
+/**
+ * VectorStream Systems Logo Component
+ * © 2025 VectorStream Systems - Patent Pending
+ * All Rights Reserved
+ */
 const VectorStreamLogo = ({ className = "h-8 w-8", textClassName = "text-xl font-bold" }) => {
   return (
     <div className="flex items-center gap-3">

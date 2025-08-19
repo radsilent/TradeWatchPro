@@ -185,6 +185,15 @@ export default function Layout({ children, currentPageName }) {
                 </div>
               </SidebarGroupContent>
             </SidebarGroup>
+            
+            {/* Copyright Notice */}
+            <div className="mt-auto p-4 border-t border-slate-700/30">
+              <div className="text-center space-y-1">
+                <p className="text-xs text-slate-500">© 2025 VectorStream Systems</p>
+                <p className="text-xs text-slate-600">Patent Pending</p>
+                <p className="text-xs text-slate-600">All Rights Reserved</p>
+              </div>
+            </div>
           </SidebarContent>
         </Sidebar>
 
@@ -199,6 +208,21 @@ export default function Layout({ children, currentPageName }) {
           <div className="flex-1 bg-slate-900">
             {children}
           </div>
+          
+          {/* Main Footer with Copyright */}
+          <footer className="bg-slate-900/80 border-t border-slate-700/30 px-6 py-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <VectorStreamLogo className="h-4 w-4" />
+                <span className="text-sm text-slate-400">TradeWatch - Global Trade Intelligence Platform</span>
+              </div>
+              <div className="flex items-center gap-6 text-xs text-slate-500">
+                <span>© 2025 VectorStream Systems</span>
+                <span className="text-slate-600">Patent Pending</span>
+                <span className="text-slate-600">All Rights Reserved</span>
+              </div>
+            </div>
+          </footer>
         </main>
       </div>
     </SidebarProvider>

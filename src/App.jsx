@@ -1,3 +1,9 @@
+/**
+ * TradeWatch - Global Trade Intelligence Platform
+ * © 2025 VectorStream Systems - Patent Pending
+ * All Rights Reserved
+ */
+
 import React, { useState, useEffect } from 'react'
 import './App.css'
 
