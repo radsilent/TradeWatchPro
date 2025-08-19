@@ -28,13 +28,13 @@ export default function DateSlicer({ minDate, maxDate, value, onValueChange }) {
     ];
 
     return (
-        <div className="w-full bg-slate-800/20 rounded-lg border border-slate-700/30 p-3">
-            {/* Compact inline date range display and slider */}
+        <div className="w-full">
+            {/* Clean inline date range display and slider */}
             <div className="flex items-center gap-4">
                 {/* From date */}
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-slate-400 font-medium">From:</span>
-                    <div className="bg-slate-700/50 px-2 py-1 rounded text-sm font-semibold text-blue-400">
+                    <div className="bg-slate-700/40 px-2 py-1 rounded text-sm font-semibold text-blue-400">
                         {format(currentValue[0], 'MMM d, yyyy')}
                     </div>
                 </div>
@@ -54,7 +54,7 @@ export default function DateSlicer({ minDate, maxDate, value, onValueChange }) {
                 {/* To date */}
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-slate-400 font-medium">To:</span>
-                    <div className="bg-slate-700/50 px-2 py-1 rounded text-sm font-semibold text-blue-400">
+                    <div className="bg-slate-700/40 px-2 py-1 rounded text-sm font-semibold text-blue-400">
                         {format(currentValue[1], 'MMM d, yyyy')}
                     </div>
                 </div>

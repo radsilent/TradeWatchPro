@@ -3,10 +3,9 @@ import { Port, Disruption, Tariff } from "@/api/entities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart, Legend, ScatterChart, Scatter } from "recharts";
-import { TrendingUp, Globe, AlertTriangle, DollarSign, MapPin, Ship, Factory, Zap, Users, Calendar } from "lucide-react";
-import { format, addMonths, addYears, parseISO, isValid } from "date-fns";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { Ship, AlertTriangle, DollarSign, Clock, Anchor, Navigation, MapPin } from "lucide-react";
+import { format } from "date-fns";
 
 export default function ImpactAnalysis() {
   const [ports, setPorts] = useState([]);
@@ -32,1388 +31,894 @@ export default function ImpactAnalysis() {
       setDisruptions(disruptionsData);
       setTariffs(tariffsData);
       
-      console.log('Impact Analysis Data Loaded:', {
+      console.log('Impact Chain Analysis Data Loaded:', {
         ports: portsData.length,
         disruptions: disruptionsData.length,
         tariffs: tariffsData.length
       });
     } catch (error) {
-      console.error("Error loading impact data:", error);
+      console.error("Error loading impact chain data:", error);
     }
     setIsLoading(false);
   };
 
-  // Regional Impact Analysis
-  const getRegionalAnalysis = () => {
-    const regions = {};
+  // Create impact chain analysis: Tariffs/Disruptions → Ports → Vessels
+  const getImpactChainAnalysis = () => {
+    const impactChains = [];
     
-    // Port impacts by region
+    // Process disruptions that affect ports, which then affect vessels
+    disruptions.forEach((disruption) => {
+      const affectedPorts = getPortsAffectedByDisruption(disruption);
+      affectedPorts.forEach(port => {
+        const vesselsAtPort = generateVesselsForPort(port, disruption, 'disruption');
+        impactChains.push({
+          id: `disruption-${disruption.id}-${port.id}`,
+          type: 'disruption',
+          source: disruption,
+          affectedPort: port,
+          impactedVessels: vesselsAtPort,
+          impactSeverity: disruption.severity || 'medium',
+          totalCosts: vesselsAtPort.reduce((sum, v) => sum + (v.additionalCosts || 0), 0),
+          totalDelayHours: vesselsAtPort.reduce((sum, v) => sum + (v.delayHours || 0), 0)
+        });
+      });
+    });
+
+    // Process tariffs that affect ports, which then affect vessels
+    tariffs.forEach((tariff) => {
+      const affectedPorts = getPortsAffectedByTariff(tariff);
+      affectedPorts.forEach(port => {
+        const vesselsAtPort = generateVesselsForPort(port, tariff, 'tariff');
+        impactChains.push({
+          id: `tariff-${tariff.id}-${port.id || port.name}`,
+          type: 'tariff',
+          source: tariff,
+          affectedPort: port,
+          impactedVessels: vesselsAtPort,
+          impactSeverity: getTariffSeverity(tariff.currentRate || tariff.rate),
+          totalCosts: vesselsAtPort.reduce((sum, v) => sum + (v.tariffCost || 0), 0),
+          totalTariffRate: tariff.currentRate || parseFloat(tariff.rate) || 0
+        });
+      });
+    });
+
+    return impactChains.slice(0, 100); // Limit for performance
+  };
+
+  // Find ports affected by a disruption
+  const getPortsAffectedByDisruption = (disruption) => {
+    const affectedPorts = [];
+    
+    // Check if disruption affects specific regions/countries
+    const affectedRegions = disruption.affected_regions || disruption.affectedRegions || [];
+    const affectedCountries = disruption.affected_countries || disruption.affectedCountries || [];
+    
+    // If disruption mentions specific locations, match to ports
+    const disruptionText = `${disruption.title || ''} ${disruption.description || ''} ${disruption.location || ''}`.toLowerCase();
+    
     ports.forEach(port => {
-      const region = port.region || getRegionFromCountry(port.country);
-      if (!regions[region]) {
-        regions[region] = {
-          name: region,
-          ports: 0,
-          throughput: 0,
-          disruptions: 0,
-          tariffImpact: 0,
-          economicValue: 0,
-          riskScore: 0
-        };
+      let isAffected = false;
+      
+      // Check by region
+      if (affectedRegions.some(region => 
+        port.region?.toLowerCase().includes(region.toLowerCase()) ||
+        port.country?.toLowerCase().includes(region.toLowerCase())
+      )) {
+        isAffected = true;
       }
-      regions[region].ports++;
-      regions[region].throughput += port.annual_throughput || 0;
-      // Track throughput without fake economic values
-    });
-
-    // Disruption impacts
-    disruptions.forEach(disruption => {
-      const affectedRegions = disruption.affected_regions || disruption.affectedRegions || ['Global'];
-      affectedRegions.forEach(regionName => {
-        const region = findRegionMatch(regionName, Object.keys(regions));
-        if (region && regions[region]) {
-          regions[region].disruptions++;
-          regions[region].riskScore += getSeverityScore(disruption.severity);
+      
+      // Check by country
+      if (affectedCountries.some(country => 
+        port.country?.toLowerCase().includes(country.toLowerCase())
+      )) {
+        isAffected = true;
+      }
+      
+      // Check by port name or location mentioned in disruption
+      if (disruptionText.includes(port.name?.toLowerCase()) ||
+          disruptionText.includes(port.country?.toLowerCase()) ||
+          disruptionText.includes(port.region?.toLowerCase())) {
+        isAffected = true;
+      }
+      
+      // Global/maritime disruptions affect major ports
+      if (disruption.category === 'maritime' || disruption.category === 'global' ||
+          disruptionText.includes('canal') || disruptionText.includes('strait') ||
+          disruptionText.includes('shipping') || disruptionText.includes('port')) {
+        if (port.strategic_importance && port.strategic_importance > 70) {
+          isAffected = true;
         }
-      });
+      }
+      
+      if (isAffected) {
+        affectedPorts.push(port);
+      }
     });
-
-    // Tariff impacts
-    tariffs.forEach(tariff => {
-      tariff.countries?.forEach(country => {
-        const region = getRegionFromCountry(country);
-        if (regions[region]) {
-          regions[region].tariffImpact += parseFloat(tariff.affectedTrade) || 0;
-        }
-      });
-    });
-
-    return Object.values(regions).map(region => ({
-      ...region,
-      riskScore: Math.min(100, region.riskScore),
-      throughputFormatted: `${(region.throughput / 1000000).toFixed(1)}M TEU`,
-      economicValueFormatted: `$${(region.economicValue / 1000000000).toFixed(1)}B`
-    })).sort((a, b) => b.economicValue - a.economicValue);
-  };
-
-  // Supply Chain Vulnerability Analysis
-  const getSupplyChainVulnerability = () => {
-    const vulnerabilities = [];
     
-    // Critical chokepoints
-    const chokepoints = [
-      { name: 'Suez Canal', risk: 95, impact: 'Critical', dailyTraffic: '50+ vessels', significance: 'Global trade artery' },
-      { name: 'Strait of Hormuz', risk: 90, impact: 'Critical', dailyTraffic: '40+ vessels', significance: 'Energy corridor' },
-      { name: 'Panama Canal', risk: 75, impact: 'High', dailyTraffic: '35+ vessels', significance: 'Americas connector' },
-      { name: 'Strait of Malacca', risk: 70, impact: 'High', dailyTraffic: '60+ vessels', significance: 'Asia-Pacific hub' },
-      { name: 'English Channel', risk: 45, impact: 'Medium', dailyTraffic: '25+ vessels', significance: 'Europe gateway' },
-      { name: 'Bosporus Strait', risk: 55, impact: 'Medium', dailyTraffic: '20+ vessels', significance: 'Black Sea access' }
-    ];
-
-    return chokepoints;
+    // If no specific ports found, return top strategic ports
+    if (affectedPorts.length === 0) {
+      return ports.filter(p => p.strategic_importance && p.strategic_importance > 80).slice(0, 5);
+    }
+    
+    return affectedPorts.slice(0, 10); // Limit to 10 ports per disruption
   };
 
-  // Trade Flow Analysis
-  const getTradeFlowAnalysis = () => {
-    const flows = [
-      { route: 'Asia-Europe', volume: 24.5, value: 1240, growth: 2.3, risk: 'High' },
-      { route: 'Trans-Pacific', volume: 18.7, value: 980, growth: 1.8, risk: 'Medium' },
-      { route: 'Asia-Middle East', volume: 12.3, value: 620, growth: 3.1, risk: 'High' },
-      { route: 'Europe-Americas', volume: 9.8, value: 540, growth: 1.2, risk: 'Low' },
-      { route: 'Intra-Asia', volume: 15.2, value: 450, growth: 4.2, risk: 'Medium' },
-      { route: 'Africa-Global', volume: 6.7, value: 280, growth: 5.1, risk: 'High' }
-    ];
-
-    return flows;
+  // Find ports affected by a tariff
+  const getPortsAffectedByTariff = (tariff) => {
+    const affectedPorts = [];
+    const tariffCountries = tariff.countries || [];
+    
+    if (tariffCountries.length === 0) {
+      // If no specific countries, return major trading ports
+      return ports.filter(p => p.strategic_importance && p.strategic_importance > 85).slice(0, 3);
+    }
+    
+    ports.forEach(port => {
+      // Check if port's country is affected by tariff
+      if (tariffCountries.some(country => 
+        port.country?.toLowerCase().includes(country.toLowerCase()) ||
+        country.toLowerCase().includes(port.country?.toLowerCase())
+      )) {
+        affectedPorts.push(port);
+      }
+    });
+    
+    return affectedPorts.slice(0, 8); // Limit to 8 ports per tariff
   };
 
-  // Enhanced Economic Impact Projections with Detailed Analysis
-  const getEconomicProjections = () => {
-    const baseYear = new Date().getFullYear();
-    const projections = [];
+  // Generate vessels that use a specific port
+  const generateVesselsForPort = (port, source, impactType) => {
+    const vessels = [];
+    const vesselTypes = ['Container Ship', 'Bulk Carrier', 'Tanker', 'Car Carrier', 'General Cargo'];
+    const flagStates = ['Panama', 'Liberia', 'Marshall Islands', 'Hong Kong', 'Singapore', 'Malta', 'Bahamas'];
+    const operators = ['Maersk', 'MSC', 'CMA CGM', 'COSCO', 'Hapag-Lloyd', 'ONE', 'Evergreen', 'Yang Ming'];
+    
+    // Number of vessels based on port importance
+    const portImportance = port.strategic_importance || 50;
+    const numVessels = Math.min(12, Math.floor((portImportance / 10) + Math.random() * 5) + 2);
+    
+    for (let i = 0; i < numVessels; i++) {
+      const vesselType = vesselTypes[Math.floor(Math.random() * vesselTypes.length)];
+      const flagState = flagStates[Math.floor(Math.random() * flagStates.length)];
+      const operator = operators[Math.floor(Math.random() * operators.length)];
+      
+      const vessel = {
+        id: `vessel-${port.id || port.name}-${i}`,
+        name: generateVesselName(vesselType),
+        imo: `IMO${Math.floor(Math.random() * 9000000) + 1000000}`,
+        type: vesselType,
+        flagState: flagState,
+        operator: operator,
+        dwt: generateDWT(vesselType),
+        length: generateLength(vesselType),
+        beam: generateBeam(vesselType),
+        yearBuilt: Math.floor(Math.random() * 15) + 2009,
+        impactType: impactType,
+        impactSource: source.title || source.name,
+        impactSeverity: impactType === 'disruption' ? (source.severity || 'medium') : getTariffSeverity(source.currentRate || source.rate),
+        affectedPort: port,
+        portName: port.name,
+        portCountry: port.country,
+        portCoordinates: port.coordinates,
+        currentPosition: generatePositionNearPort(port),
+        destination: generateDestination(),
+        eta: new Date(Date.now() + (Math.random() * 30 * 24 * 60 * 60 * 1000)),
+        status: generateVesselStatus(),
+        fuelConsumption: Math.floor(Math.random() * 100) + 20,
+        crewSize: Math.floor(Math.random() * 20) + 15,
+        lastUpdate: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000)
+      };
+      
+      // Add impact-specific data
+      if (impactType === 'disruption') {
+        vessel.delayHours = Math.floor(Math.random() * 168) + 12; // 12-180 hours
+        vessel.additionalCosts = Math.floor(Math.random() * 500000) + 50000; // $50k-$550k
+        vessel.cargoValue = Math.floor(Math.random() * 50000000) + 5000000; // $5M-$55M
+      } else if (impactType === 'tariff') {
+        vessel.tariffRate = `${source.currentRate || parseFloat(source.rate) || 0}%`;
+        vessel.tariffCost = Math.floor(Math.random() * 2000000) + 100000; // $100k-$2.1M
+        vessel.cargoValue = Math.floor(Math.random() * 80000000) + 10000000; // $10M-$90M
+      }
+      
+      vessels.push(vessel);
+    }
+    
+    return vessels;
+  };
 
-    for (let year = baseYear; year <= 2035; year++) {
-      const yearsSince = year - baseYear;
+  // Generate position near a specific port
+  const generatePositionNearPort = (port) => {
+    if (!port.coordinates) {
+      return { lat: 0, lng: 0, area: 'Unknown' };
+    }
+    
+    // Generate position within 50km of port
+    const latOffset = (Math.random() - 0.5) * 0.5; // ~50km
+    const lngOffset = (Math.random() - 0.5) * 0.5;
+    
+    return {
+      lat: port.coordinates.lat + latOffset,
+      lng: port.coordinates.lng + lngOffset,
+      area: `Near ${port.name}`
+    };
+  };
+
+  const generateVesselsFromDisruption = (disruption, startId) => {
+    const vessels = [];
+    const vesselTypes = ['Container Ship', 'Bulk Carrier', 'Tanker', 'Car Carrier', 'General Cargo'];
+    const flagStates = ['Panama', 'Liberia', 'Marshall Islands', 'Hong Kong', 'Singapore', 'Malta', 'Bahamas'];
+    const operators = ['Maersk', 'MSC', 'CMA CGM', 'COSCO', 'Hapag-Lloyd', 'ONE', 'Evergreen', 'Yang Ming'];
+    
+    const numVessels = Math.min(8, Math.floor(Math.random() * 12) + 3);
+    
+    for (let i = 0; i < numVessels; i++) {
+      const vesselType = vesselTypes[Math.floor(Math.random() * vesselTypes.length)];
+      const flagState = flagStates[Math.floor(Math.random() * flagStates.length)];
+      const operator = operators[Math.floor(Math.random() * operators.length)];
       
-      // More sophisticated modeling factors
-      const geopoliticalRisk = year <= 2026 ? 1.05 : year <= 2030 ? 1.02 : 0.98;
-      const climateImpact = Math.pow(1.015, yearsSince); // 1.5% annual climate impact growth
-      const technologyGains = Math.pow(1.04, yearsSince); // 4% annual technology efficiency gains
-      const tradeWarImpact = year <= 2027 ? 0.97 : 0.99; // Trade war dampening effect
-      const supplyChainResilience = Math.pow(1.02, yearsSince); // 2% annual resilience improvement
-      
-      const baselineGrowth = 12500 * Math.pow(1.028, yearsSince); // 2.8% baseline growth
-      
-      projections.push({
-        year,
-        baseline: baselineGrowth,
-        withDisruptions: baselineGrowth * geopoliticalRisk * climateImpact * 0.96, // -4% disruption impact
-        withTariffs: baselineGrowth * tradeWarImpact * 0.94, // -6% tariff impact
-        withClimateChange: baselineGrowth * climateImpact * 0.92, // -8% climate impact
-        withTechnology: baselineGrowth * technologyGains * 1.08, // +8% technology gains
-        optimistic: baselineGrowth * technologyGains * supplyChainResilience * 1.12, // +12% optimistic
-        pessimistic: baselineGrowth * geopoliticalRisk * tradeWarImpact * climateImpact * 0.85, // -15% pessimistic
-        // Additional scenario metrics
-        automationImpact: baselineGrowth * Math.pow(1.06, yearsSince) * 1.15, // +15% automation benefits
-        deglobalizationScenario: baselineGrowth * Math.pow(0.98, yearsSince) * 0.88, // -12% deglobalization
-        greenTransition: baselineGrowth * Math.pow(1.035, yearsSince) * 1.05 // +5% green transition benefits
+      vessels.push({
+        id: `vessel-${startId + i}`,
+        name: generateVesselName(vesselType),
+        imo: `IMO${Math.floor(Math.random() * 9000000) + 1000000}`,
+        type: vesselType,
+        flagState: flagState,
+        operator: operator,
+        dwt: generateDWT(vesselType),
+        length: generateLength(vesselType),
+        beam: generateBeam(vesselType),
+        yearBuilt: Math.floor(Math.random() * 15) + 2009,
+        impactType: 'disruption',
+        impactSource: disruption.title || disruption.name,
+        impactSeverity: disruption.severity || 'medium',
+        impactCategory: disruption.category || 'operational',
+        affectedRoutes: generateAffectedRoutes(disruption),
+        delayHours: Math.floor(Math.random() * 168) + 12, // 12-180 hours
+        additionalCosts: Math.floor(Math.random() * 500000) + 50000, // $50k-$550k
+        cargoValue: Math.floor(Math.random() * 50000000) + 5000000, // $5M-$55M
+        currentPosition: generatePosition(),
+        destination: generateDestination(),
+        eta: new Date(Date.now() + (Math.random() * 30 * 24 * 60 * 60 * 1000)),
+        status: generateVesselStatus(),
+        fuelConsumption: Math.floor(Math.random() * 100) + 20, // tons/day
+        crewSize: Math.floor(Math.random() * 20) + 15,
+        lastUpdate: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000)
       });
     }
-
-    return projections;
-  };
-
-  // Enhanced Sector Impact Analysis with Detailed Metrics
-  const getSectorImpacts = () => {
-    return [
-      { 
-        sector: 'Technology & Electronics', 
-        impact: 85, 
-        value: 2400, 
-        affected: 'Critical', 
-        trend: 'Increasing',
-        riskFactors: ['Semiconductor shortages', 'Geopolitical tensions', 'Rare earth dependencies'],
-        keyMetrics: {
-          supplyChainComplexity: 94,
-          regionConcentration: 88,
-          substitutability: 32,
-          timeToRecovery: '18-24 months'
-        },
-        majorRoutes: ['Asia-Pacific to North America', 'China to Europe'],
-        vulnerabilities: 'High dependency on East Asian manufacturing hubs'
-      },
-      { 
-        sector: 'Automotive', 
-        impact: 78, 
-        value: 1800, 
-        affected: 'High', 
-        trend: 'Stabilizing',
-        riskFactors: ['Just-in-time vulnerabilities', 'EV transition disruptions', 'Chip shortages'],
-        keyMetrics: {
-          supplyChainComplexity: 89,
-          regionConcentration: 72,
-          substitutability: 45,
-          timeToRecovery: '12-18 months'
-        },
-        majorRoutes: ['Germany to Global', 'Japan to Americas', 'China to Europe'],
-        vulnerabilities: 'Complex multi-tier supply networks spanning 15+ countries'
-      },
-      { 
-        sector: 'Energy & Petrochemicals', 
-        impact: 92, 
-        value: 3200, 
-        affected: 'Critical', 
-        trend: 'Highly Volatile',
-        riskFactors: ['Geopolitical instability', 'Climate transition', 'Infrastructure vulnerabilities'],
-        keyMetrics: {
-          supplyChainComplexity: 76,
-          regionConcentration: 95,
-          substitutability: 28,
-          timeToRecovery: '6-36 months'
-        },
-        majorRoutes: ['Middle East to Global', 'Russia to Europe', 'Americas Internal'],
-        vulnerabilities: 'Heavy reliance on unstable regions and critical shipping lanes'
-      },
-      { 
-        sector: 'Agriculture & Food', 
-        impact: 65, 
-        value: 1200, 
-        affected: 'Medium', 
-        trend: 'Climate-Sensitive',
-        riskFactors: ['Climate change', 'Weather disruptions', 'Fertilizer dependencies'],
-        keyMetrics: {
-          supplyChainComplexity: 65,
-          regionConcentration: 58,
-          substitutability: 72,
-          timeToRecovery: '3-12 months'
-        },
-        majorRoutes: ['Americas to Asia', 'Black Sea to Global', 'Australia to Asia'],
-        vulnerabilities: 'Weather-dependent production and limited storage capacity'
-      },
-      { 
-        sector: 'Textiles & Apparel', 
-        impact: 70, 
-        value: 900, 
-        affected: 'Medium', 
-        trend: 'Reshoring',
-        riskFactors: ['Labor cost inflation', 'Sustainability pressure', 'Trade policy changes'],
-        keyMetrics: {
-          supplyChainComplexity: 82,
-          regionConcentration: 78,
-          substitutability: 68,
-          timeToRecovery: '6-12 months'
-        },
-        majorRoutes: ['Asia to Americas', 'Asia to Europe', 'Turkey to Europe'],
-        vulnerabilities: 'Concentration in emerging economies with labor cost sensitivity'
-      },
-      { 
-        sector: 'Chemicals & Materials', 
-        impact: 82, 
-        value: 1600, 
-        affected: 'High', 
-        trend: 'Increasing',
-        riskFactors: ['Environmental regulations', 'Input cost volatility', 'Safety concerns'],
-        keyMetrics: {
-          supplyChainComplexity: 87,
-          regionConcentration: 69,
-          substitutability: 38,
-          timeToRecovery: '12-24 months'
-        },
-        majorRoutes: ['China to Global', 'Europe Internal', 'Middle East to Asia'],
-        vulnerabilities: 'Complex chemical processes requiring specialized facilities'
-      },
-      { 
-        sector: 'Heavy Machinery', 
-        impact: 75, 
-        value: 1400, 
-        affected: 'Medium', 
-        trend: 'Stable',
-        riskFactors: ['Steel price volatility', 'Technology disruption', 'Infrastructure demand'],
-        keyMetrics: {
-          supplyChainComplexity: 71,
-          regionConcentration: 64,
-          substitutability: 52,
-          timeToRecovery: '9-18 months'
-        },
-        majorRoutes: ['Germany to Global', 'Japan to Asia', 'China to Africa'],
-        vulnerabilities: 'Long production cycles and high capital requirements'
-      },
-      { 
-        sector: 'Pharmaceuticals & Medical', 
-        impact: 88, 
-        value: 800, 
-        affected: 'Critical', 
-        trend: 'Increasing',
-        riskFactors: ['Regulatory complexity', 'Single-source dependencies', 'Cold chain requirements'],
-        keyMetrics: {
-          supplyChainComplexity: 92,
-          regionConcentration: 85,
-          substitutability: 25,
-          timeToRecovery: '24-48 months'
-        },
-        majorRoutes: ['India to Global', 'Europe to Americas', 'China to Europe'],
-        vulnerabilities: 'Strict regulatory requirements and limited manufacturing alternatives'
-      },
-      { 
-        sector: 'Critical Minerals & Metals', 
-        impact: 89, 
-        value: 950, 
-        affected: 'Critical', 
-        trend: 'Intensifying',
-        riskFactors: ['Resource nationalism', 'Environmental restrictions', 'Demand surge'],
-        keyMetrics: {
-          supplyChainComplexity: 68,
-          regionConcentration: 96,
-          substitutability: 15,
-          timeToRecovery: '36-72 months'
-        },
-        majorRoutes: ['Australia to China', 'Africa to Global', 'South America to Asia'],
-        vulnerabilities: 'Extreme geographic concentration and limited substitutes'
-      },
-      { 
-        sector: 'Renewable Energy Equipment', 
-        impact: 83, 
-        value: 750, 
-        affected: 'High', 
-        trend: 'Rapidly Growing',
-        riskFactors: ['Technology evolution', 'Policy uncertainties', 'Material constraints'],
-        keyMetrics: {
-          supplyChainComplexity: 86,
-          regionConcentration: 91,
-          substitutability: 35,
-          timeToRecovery: '18-30 months'
-        },
-        majorRoutes: ['China to Global', 'Europe Internal', 'Asia to Americas'],
-        vulnerabilities: 'Dominant single-country manufacturing and critical material dependencies'
-      }
-    ];
-  };
-
-  // Helper functions
-  const getRegionFromCountry = (country) => {
-    const regionMap = {
-      'China': 'Asia Pacific', 'Japan': 'Asia Pacific', 'South Korea': 'Asia Pacific',
-      'Singapore': 'Asia Pacific', 'Malaysia': 'Asia Pacific', 'Thailand': 'Asia Pacific',
-      'United States': 'North America', 'Canada': 'North America', 'Mexico': 'North America',
-      'Netherlands': 'Europe', 'Germany': 'Europe', 'United Kingdom': 'Europe',
-      'Spain': 'Europe', 'Belgium': 'Europe', 'France': 'Europe', 'Italy': 'Europe',
-      'UAE': 'Middle East', 'Saudi Arabia': 'Middle East', 'Egypt': 'Middle East',
-      'South Africa': 'Africa', 'Nigeria': 'Africa', 'Morocco': 'Africa',
-      'Brazil': 'South America', 'Argentina': 'South America', 'Colombia': 'South America'
-    };
-    return regionMap[country] || 'Other';
-  };
-
-  const findRegionMatch = (disruptionRegion, availableRegions) => {
-    // Simple matching logic - can be enhanced
-    const matches = availableRegions.filter(region => 
-      region.toLowerCase().includes(disruptionRegion.toLowerCase()) ||
-      disruptionRegion.toLowerCase().includes(region.toLowerCase())
-    );
-    return matches[0] || 'Global';
-  };
-
-  const getSeverityScore = (severity) => {
-    const scores = { critical: 25, high: 15, medium: 8, low: 3 };
-    return scores[severity] || 5;
-  };
-
-  // Comprehensive Tariff-Vessel-Port Impact Analysis
-  const getTariffVesselPortAnalysis = () => {
-    const analysis = {
-      tariffPortImpacts: [],
-      vesselRoutingImpacts: [],
-      portCapacityEffects: [],
-      crossImpactMatrix: [],
-      economicRippleEffects: [],
-      timeSeriesProjections: []
-    };
-
-    // Detailed tariff impact on ports
-    tariffs.forEach(tariff => {
-      const affectedCountries = tariff.countries || [];
-      
-      affectedCountries.forEach(country => {
-        const countryPorts = ports.filter(port => 
-          port.country?.toLowerCase().includes(country.toLowerCase()) ||
-          port.name?.toLowerCase().includes(country.toLowerCase())
-        );
-
-        countryPorts.forEach(port => {
-          const alternatives = findAlternativePorts(port, ports);
-          const costIncrease = (tariff.currentRate / 100) * (port.annual_throughput || 1000000);
-          const volumeShift = Math.min(costIncrease * 0.1, port.annual_throughput * 0.3);
-
-          analysis.tariffPortImpacts.push({
-            tariffId: tariff.id,
-            tariffTitle: tariff.title,
-            tariffRate: `${tariff.currentRate}%`,
-            portName: port.name,
-            portCountry: port.country,
-            portThroughput: port.annual_throughput || 0,
-            expectedVolumeShift: Math.round(volumeShift),
-            costImpactUSD: Math.round(costIncrease * 100),
-            alternativePorts: alternatives.slice(0, 3).map(alt => ({
-              name: alt.name,
-              country: alt.country,
-              distance: calculateDistance(port, alt),
-              additionalCost: calculateAdditionalCost(port, alt)
-            })),
-            competitivenessChange: tariff.currentRate > 15 ? 'Severe' : tariff.currentRate > 8 ? 'Moderate' : 'Mild',
-            timeToImpact: '2-6 months',
-            recoveryTime: tariff.currentRate > 20 ? '18-36 months' : '6-18 months'
-          });
-        });
-      });
-    });
-
-    // Vessel routing optimization under tariff pressure
-    const majorRoutes = [
-      { from: 'Shanghai', to: 'Los Angeles', vessels: 450, avgTEU: 18000 },
-      { from: 'Shenzhen', to: 'Long Beach', vessels: 380, avgTEU: 16000 },
-      { from: 'Singapore', to: 'Rotterdam', vessels: 320, avgTEU: 20000 },
-      { from: 'Busan', to: 'Hamburg', vessels: 280, avgTEU: 15000 },
-      { from: 'Hong Kong', to: 'New York', vessels: 250, avgTEU: 14000 },
-      { from: 'Ningbo', to: 'Savannah', vessels: 220, avgTEU: 17000 },
-      { from: 'Qingdao', to: 'Seattle', vessels: 200, avgTEU: 16000 },
-      { from: 'Tianjin', to: 'Oakland', vessels: 180, avgTEU: 15000 }
-    ];
-
-    majorRoutes.forEach(route => {
-      const relevantTariffs = tariffs.filter(tariff => 
-        tariff.countries?.some(country => 
-          route.from.toLowerCase().includes(country.toLowerCase()) ||
-          route.to.toLowerCase().includes(country.toLowerCase())
-        )
-      );
-
-      if (relevantTariffs.length > 0) {
-        const avgTariffRate = relevantTariffs.reduce((sum, t) => sum + t.currentRate, 0) / relevantTariffs.length;
-        const routeValue = route.vessels * route.avgTEU * 1500; // Estimated value per TEU
-        const tariffCost = routeValue * (avgTariffRate / 100);
-
-        analysis.vesselRoutingImpacts.push({
-          route: `${route.from} → ${route.to}`,
-          monthlyVessels: route.vessels,
-          avgCapacity: route.avgTEU,
-          routeValue: Math.round(routeValue / 1000000), // In millions
-          applicableTariffs: relevantTariffs.length,
-          avgTariffRate: Math.round(avgTariffRate * 10) / 10,
-          additionalCost: Math.round(tariffCost / 1000000), // In millions
-          alternativeRoutes: generateAlternativeRoutes(route),
-          diversionProbability: avgTariffRate > 15 ? 'High' : avgTariffRate > 8 ? 'Medium' : 'Low',
-          impactedCargo: estimateImpactedCargo(route, avgTariffRate)
-        });
-      }
-    });
-
-    // Port capacity and congestion effects
-    const highVolumePortsWithTariffExposure = ports
-      .filter(port => port.annual_throughput > 5000000)
-      .map(port => {
-        const exposedTariffs = tariffs.filter(tariff =>
-          tariff.countries?.some(country =>
-            port.country?.toLowerCase().includes(country.toLowerCase())
-          )
-        );
-
-        if (exposedTariffs.length > 0) {
-          const avgExposure = exposedTariffs.reduce((sum, t) => sum + t.currentRate, 0) / exposedTariffs.length;
-          const expectedVolumeChange = avgExposure > 15 ? -0.25 : avgExposure > 8 ? -0.15 : -0.05;
-          
-          return {
-            portName: port.name,
-            country: port.country,
-            currentThroughput: port.annual_throughput,
-            tariffExposure: Math.round(avgExposure * 10) / 10,
-            exposedTariffs: exposedTariffs.length,
-            projectedVolumeChange: Math.round(expectedVolumeChange * 100),
-            newThroughput: Math.round(port.annual_throughput * (1 + expectedVolumeChange)),
-            capacityUtilization: calculateCapacityUtilization(port, expectedVolumeChange),
-            congestionRisk: assessCongestionRisk(port, expectedVolumeChange),
-            infrastructureStrain: calculateInfrastructureStrain(port, expectedVolumeChange)
-          };
-        }
-        return null;
-      })
-      .filter(Boolean);
-
-    analysis.portCapacityEffects = highVolumePortsWithTariffExposure;
-
-    // Cross-impact matrix showing interconnected effects
-    analysis.crossImpactMatrix = generateCrossImpactMatrix(tariffs, disruptions, ports);
-
-    // Economic ripple effects
-    analysis.economicRippleEffects = calculateEconomicRippleEffects(analysis);
-
-    // Time series projections for next 5 years
-    analysis.timeSeriesProjections = generateTimeSeriesProjections(analysis);
-
-    return analysis;
-  };
-
-  // Advanced Cross-Impact Analysis Functions
-  const getCrossImpactAnalysis = () => {
-    const analysis = {
-      tariffPortImpacts: [],
-      disruptionVesselImpacts: [],
-      cascadingEffects: [],
-      compoundRisks: [],
-      adaptationStrategies: []
-    };
-
-    // Analyze how tariffs affect specific ports
-    tariffs.forEach(tariff => {
-      if (tariff.countries && Array.isArray(tariff.countries)) {
-        tariff.countries.forEach(country => {
-          const affectedPorts = ports.filter(port => 
-            port.country === country || 
-            (port.region && getRegionFromCountry(country) === port.region)
-          );
-
-          affectedPorts.forEach(port => {
-            const impact = {
-              tariffId: tariff.id,
-              portId: port.id,
-              portName: port.name,
-              country: country,
-              tariffRate: tariff.currentRate,
-              commodity: tariff.products?.[0] || 'Various',
-              estimatedVolumeReduction: Math.min(tariff.currentRate * 2, 85), // Rough estimate
-              alternativeRoutes: findAlternativePorts(port, country),
-              timeToReroute: calculateRerouteTime(port, tariff.currentRate),
-              economicImpact: calculatePortEconomicImpact(port, tariff),
-              vesselDiversions: estimateVesselDiversions(port, tariff.currentRate)
-            };
-            analysis.tariffPortImpacts.push(impact);
-          });
-        });
-      }
-    });
-
-    // Analyze how disruptions affect vessel operations
-    disruptions.forEach(disruption => {
-      const affectedRegions = disruption.affected_regions || disruption.affectedRegions || [];
-      affectedRegions.forEach(region => {
-        const regionalPorts = ports.filter(port => 
-          port.region === region || 
-          getRegionFromCountry(port.country) === region
-        );
-
-        regionalPorts.forEach(port => {
-          const vesselImpact = {
-            disruptionId: disruption.id,
-            portId: port.id,
-            portName: port.name,
-            disruptionType: disruption.type || 'Maritime Incident',
-            severity: disruption.severity,
-            estimatedDelays: calculateVesselDelays(disruption.severity, port.strategic_importance),
-            routeChanges: estimateRouteChanges(disruption, port),
-            fuelCostIncrease: calculateFuelCostIncrease(disruption.severity),
-            capacityReduction: estimateCapacityReduction(disruption, port),
-            alternativeOptions: findAlternativeRoutes(port, region)
-          };
-          analysis.disruptionVesselImpacts.push(vesselImpact);
-        });
-      });
-    });
-
-    // Identify cascading effects
-    analysis.cascadingEffects = identifyCascadingEffects();
     
-    // Calculate compound risks
-    analysis.compoundRisks = calculateCompoundRisks();
-
-    // Generate adaptation strategies
-    analysis.adaptationStrategies = generateAdaptationStrategies();
-
-    return analysis;
+    return vessels;
   };
 
-  const findAlternativePorts = (affectedPort, country) => {
-    return ports
-      .filter(port => 
-        port.country !== country && 
-        port.region === affectedPort.region &&
-        port.strategic_importance >= (affectedPort.strategic_importance - 20)
-      )
-      .slice(0, 3)
-      .map(port => ({
-        name: port.name,
-        country: port.country,
-        capacity: port.container_volume || 'N/A',
-        distance: Math.floor(Math.random() * 500) + 200 // Simulated distance
-      }));
-  };
-
-  const calculateRerouteTime = (port, tariffRate) => {
-    const baseTime = 7; // days
-    const complexityFactor = (100 - port.strategic_importance) / 100;
-    const tariffFactor = tariffRate / 100;
-    return Math.ceil(baseTime * (1 + complexityFactor + tariffFactor));
-  };
-
-  const calculatePortEconomicImpact = (port, tariff) => {
-    const baseImpact = port.strategic_importance * 100000; // Base economic activity
-    const tariffMultiplier = tariff.currentRate / 100;
-    const tradeReduction = baseImpact * tariffMultiplier * 0.6; // Estimated trade reduction
-    return {
-      dailyLoss: Math.floor(tradeReduction / 365),
-      monthlyLoss: Math.floor(tradeReduction / 12),
-      annualLoss: Math.floor(tradeReduction),
-      jobsAtRisk: Math.floor(tradeReduction / 150000), // Rough jobs per economic activity
-      businessesAffected: Math.floor(tradeReduction / 500000)
-    };
-  };
-
-  const estimateVesselDiversions = (port, tariffRate) => {
-    const baseVessels = Math.floor(port.strategic_importance / 5); // Vessels per day estimate
-    const diversionRate = Math.min(tariffRate / 100 * 0.7, 0.8); // Max 80% diversion
-    return {
-      dailyDiversions: Math.floor(baseVessels * diversionRate),
-      weeklyDiversions: Math.floor(baseVessels * diversionRate * 7),
-      affectedCarriers: Math.ceil(baseVessels * diversionRate / 3)
-    };
-  };
-
-  const calculateVesselDelays = (severity, portImportance) => {
-    const severityMultiplier = { critical: 3, high: 2, medium: 1.5, low: 1 };
-    const baseDelay = (severityMultiplier[severity] || 1) * 24; // hours
-    const portFactor = (100 - portImportance) / 100;
-    return {
-      averageDelay: Math.ceil(baseDelay * (1 + portFactor)),
-      maxDelay: Math.ceil(baseDelay * (1 + portFactor) * 2),
-      queueLength: Math.ceil(portImportance / 10 * severityMultiplier[severity])
-    };
-  };
-
-  const estimateRouteChanges = (disruption, port) => {
-    const changes = [];
-    if (disruption.severity === 'critical' || disruption.severity === 'high') {
-      changes.push({
-        type: 'Complete Rerouting',
-        probability: 85,
-        additionalDistance: Math.floor(Math.random() * 1000) + 500,
-        additionalTime: Math.floor(Math.random() * 7) + 3
+  const generateVesselsFromTariff = (tariff, startId) => {
+    const vessels = [];
+    const vesselTypes = ['Container Ship', 'Bulk Carrier', 'Tanker', 'Car Carrier', 'General Cargo'];
+    const flagStates = ['Panama', 'Liberia', 'Marshall Islands', 'Hong Kong', 'Singapore'];
+    const operators = ['Maersk', 'MSC', 'CMA CGM', 'COSCO', 'Hapag-Lloyd'];
+    
+    const numVessels = Math.min(6, Math.floor(Math.random() * 10) + 2);
+    
+    for (let i = 0; i < numVessels; i++) {
+      const vesselType = vesselTypes[Math.floor(Math.random() * vesselTypes.length)];
+      const flagState = flagStates[Math.floor(Math.random() * flagStates.length)];
+      const operator = operators[Math.floor(Math.random() * operators.length)];
+      
+      vessels.push({
+        id: `vessel-${startId + i}`,
+        name: generateVesselName(vesselType),
+        imo: `IMO${Math.floor(Math.random() * 9000000) + 1000000}`,
+        type: vesselType,
+        flagState: flagState,
+        operator: operator,
+        dwt: generateDWT(vesselType),
+        length: generateLength(vesselType),
+        beam: generateBeam(vesselType),
+        yearBuilt: Math.floor(Math.random() * 15) + 2009,
+        impactType: 'tariff',
+        impactSource: tariff.name || tariff.title,
+        impactSeverity: getTariffSeverity(tariff.currentRate || tariff.rate),
+        impactCategory: 'economic',
+        affectedRoutes: generateTariffRoutes(tariff),
+        tariffRate: `${tariff.currentRate || parseFloat(tariff.rate) || 0}%`,
+        tariffCost: Math.floor(Math.random() * 2000000) + 100000, // $100k-$2.1M
+        cargoValue: Math.floor(Math.random() * 80000000) + 10000000, // $10M-$90M
+        currentPosition: generatePosition(),
+        destination: generateDestination(),
+        eta: new Date(Date.now() + (Math.random() * 45 * 24 * 60 * 60 * 1000)),
+        status: generateVesselStatus(),
+        fuelConsumption: Math.floor(Math.random() * 100) + 20,
+        crewSize: Math.floor(Math.random() * 20) + 15,
+        lastUpdate: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000)
       });
+    }
+    
+    return vessels;
+  };
+
+  // Helper functions for vessel generation
+  const generateVesselName = (type) => {
+    const prefixes = ['MSC', 'MAERSK', 'CMA CGM', 'COSCO', 'HAPAG', 'ONE', 'EVER', 'YANG MING'];
+    const suffixes = ['EXPRESS', 'GALAXY', 'FORTUNE', 'VICTORY', 'PIONEER', 'NAVIGATOR', 'EXPLORER', 'CHAMPION'];
+    const cities = ['SHANGHAI', 'HAMBURG', 'ROTTERDAM', 'SINGAPORE', 'TOKYO', 'BUSAN', 'VALENCIA', 'BREMEN'];
+    
+    if (Math.random() > 0.5) {
+      return `${prefixes[Math.floor(Math.random() * prefixes.length)]} ${suffixes[Math.floor(Math.random() * suffixes.length)]}`;
     } else {
-      changes.push({
-        type: 'Partial Rerouting',
-        probability: 45,
-        additionalDistance: Math.floor(Math.random() * 300) + 100,
-        additionalTime: Math.floor(Math.random() * 3) + 1
-      });
+      return cities[Math.floor(Math.random() * cities.length)];
     }
-    return changes;
   };
 
-  const calculateFuelCostIncrease = (severity) => {
-    const increases = { critical: 35, high: 25, medium: 15, low: 8 };
-    return increases[severity] || 10;
+  const generateDWT = (type) => {
+    switch (type) {
+      case 'Container Ship': return Math.floor(Math.random() * 180000) + 20000;
+      case 'Bulk Carrier': return Math.floor(Math.random() * 300000) + 50000;
+      case 'Tanker': return Math.floor(Math.random() * 250000) + 30000;
+      case 'Car Carrier': return Math.floor(Math.random() * 60000) + 10000;
+      default: return Math.floor(Math.random() * 80000) + 15000;
+    }
   };
 
-  const estimateCapacityReduction = (disruption, port) => {
-    const severityImpact = { critical: 0.6, high: 0.4, medium: 0.25, low: 0.1 };
-    const baseCapacity = port.strategic_importance * 1000; // TEU estimate
-    const reduction = baseCapacity * (severityImpact[disruption.severity] || 0.1);
-    return {
-      reducedCapacity: Math.floor(reduction),
-      percentageReduction: Math.floor((severityImpact[disruption.severity] || 0.1) * 100),
-      estimatedDuration: getDurationEstimate(disruption.severity)
-    };
+  const generateLength = (type) => {
+    switch (type) {
+      case 'Container Ship': return Math.floor(Math.random() * 200) + 200;
+      case 'Bulk Carrier': return Math.floor(Math.random() * 150) + 180;
+      case 'Tanker': return Math.floor(Math.random() * 180) + 150;
+      case 'Car Carrier': return Math.floor(Math.random() * 50) + 150;
+      default: return Math.floor(Math.random() * 100) + 120;
+    }
   };
 
-  const getDurationEstimate = (severity) => {
-    const durations = { 
-      critical: '2-8 weeks', 
-      high: '1-4 weeks', 
-      medium: '3-10 days', 
-      low: '1-3 days' 
-    };
-    return durations[severity] || '1-7 days';
+  const generateBeam = (length) => {
+    return Math.floor(length * 0.15) + Math.floor(Math.random() * 10);
   };
 
-  const findAlternativeRoutes = (port, region) => {
-    const alternatives = [
-      { route: 'Northern Route', viability: 'High', additionalCost: '15%', timeIncrease: '3-5 days' },
-      { route: 'Southern Route', viability: 'Medium', additionalCost: '25%', timeIncrease: '5-8 days' },
-      { route: 'Intermodal Alternative', viability: 'Low', additionalCost: '40%', timeIncrease: '7-14 days' }
+  const generateAffectedRoutes = (disruption) => {
+    const routes = [
+      'Asia-Europe', 'Trans-Pacific', 'Asia-North America', 'Europe-North America',
+      'Intra-Asia', 'Middle East-Asia', 'South America-Asia', 'Africa-Europe',
+      'Red Sea Route', 'Suez Canal Route', 'Panama Canal Route', 'Cape Route'
     ];
-    return alternatives.slice(0, Math.floor(Math.random() * 3) + 1);
+    
+    const numRoutes = Math.floor(Math.random() * 3) + 1;
+    const selectedRoutes = [];
+    
+    for (let i = 0; i < numRoutes; i++) {
+      const route = routes[Math.floor(Math.random() * routes.length)];
+      if (!selectedRoutes.includes(route)) {
+        selectedRoutes.push(route);
+      }
+    }
+    
+    return selectedRoutes;
   };
 
-  const identifyCascadingEffects = () => {
-    const effects = [];
+  const generateTariffRoutes = (tariff) => {
+    const countries = tariff.countries || [];
+    if (countries.length === 0) return ['Global Trade'];
     
-    // Port congestion leading to vessel delays
-    const congestedPorts = ports.filter(port => port.disruption_level === 'high');
-    congestedPorts.forEach(port => {
-      effects.push({
-        trigger: `Port Congestion at ${port.name}`,
-        effect: 'Vessel Queue Formation',
-        magnitude: 'High',
-        timeframe: '1-2 weeks',
-        secondaryEffects: [
-          'Increased freight rates',
-          'Container shortages',
-          'Supply chain delays',
-          'Alternative port overload'
-        ]
+    return countries.map(country => `Routes to/from ${country}`);
+  };
+
+  const generatePosition = () => {
+    const positions = [
+      { lat: 1.29, lng: 103.85, area: 'Singapore Strait' },
+      { lat: 30.04, lng: 32.34, area: 'Suez Canal' },
+      { lat: 9.08, lng: -79.68, area: 'Panama Canal' },
+      { lat: 51.92, lng: 4.48, area: 'North Sea' },
+      { lat: 36.10, lng: -5.35, area: 'Strait of Gibraltar' },
+      { lat: 26.55, lng: 56.25, area: 'Strait of Hormuz' },
+      { lat: -34.36, lng: 18.42, area: 'Cape of Good Hope' }
+    ];
+    
+    return positions[Math.floor(Math.random() * positions.length)];
+  };
+
+  const generateDestination = () => {
+    const ports = [
+      'Port of Shanghai', 'Port of Singapore', 'Port of Rotterdam', 'Port of Hamburg',
+      'Port of Los Angeles', 'Port of Long Beach', 'Port of Antwerp', 'Port of Busan',
+      'Port of Hong Kong', 'Port of Shenzhen', 'Port of Valencia', 'Port of Bremen'
+    ];
+    
+    return ports[Math.floor(Math.random() * ports.length)];
+  };
+
+  const generateVesselStatus = () => {
+    const statuses = ['En Route', 'At Anchor', 'In Port', 'Delayed', 'Diverted', 'Under Repair'];
+    const weights = [0.4, 0.15, 0.2, 0.15, 0.08, 0.02];
+    
+    const random = Math.random();
+    let cumulative = 0;
+    
+    for (let i = 0; i < statuses.length; i++) {
+      cumulative += weights[i];
+      if (random <= cumulative) {
+        return statuses[i];
+      }
+    }
+    
+    return 'En Route';
+  };
+
+  const getTariffSeverity = (rate) => {
+    const numRate = parseFloat(rate) || 0;
+    if (numRate > 30) return 'critical';
+    if (numRate > 15) return 'high';
+    if (numRate > 5) return 'medium';
+    return 'low';
+  };
+
+  // Get impact chain statistics
+  const getImpactChainStatistics = () => {
+    const impactChains = getImpactChainAnalysis();
+    const allVessels = impactChains.flatMap(chain => chain.impactedVessels);
+    
+    const stats = {
+      totalImpactChains: impactChains.length,
+      totalAffectedPorts: [...new Set(impactChains.map(chain => chain.affectedPort.id || chain.affectedPort.name))].length,
+      totalVessels: allVessels.length,
+      disruptionChains: impactChains.filter(c => c.type === 'disruption').length,
+      tariffChains: impactChains.filter(c => c.type === 'tariff').length,
+      criticalImpacts: impactChains.filter(c => c.impactSeverity === 'critical').length,
+      highImpacts: impactChains.filter(c => c.impactSeverity === 'high').length,
+      mediumImpacts: impactChains.filter(c => c.impactSeverity === 'medium').length,
+      lowImpacts: impactChains.filter(c => c.impactSeverity === 'low').length,
+      totalDelayCosts: impactChains.reduce((sum, c) => sum + (c.totalCosts || 0), 0),
+      totalTariffCosts: impactChains.filter(c => c.type === 'tariff').reduce((sum, c) => sum + (c.totalCosts || 0), 0),
+      averageVesselsPerPort: allVessels.length / stats.totalAffectedPorts || 0,
+      averageDelayHours: impactChains.reduce((sum, c) => sum + (c.totalDelayHours || 0), 0) / impactChains.filter(c => c.totalDelayHours).length || 0
+    };
+    
+    return stats;
+  };
+
+  // Get vessel type breakdown
+  const getVesselTypeBreakdown = () => {
+    const vessels = getVesselImpacts();
+    const typeCount = {};
+    
+    vessels.forEach(vessel => {
+      typeCount[vessel.type] = (typeCount[vessel.type] || 0) + 1;
+    });
+    
+    return Object.entries(typeCount).map(([type, count]) => ({
+      name: type,
+      value: count,
+      percentage: ((count / vessels.length) * 100).toFixed(1)
+    }));
+  };
+
+  // Get impact severity breakdown
+  const getImpactSeverityBreakdown = () => {
+    const vessels = getVesselImpacts();
+    const severityCount = {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0
+    };
+    
+    vessels.forEach(vessel => {
+      severityCount[vessel.impactSeverity]++;
+    });
+    
+    return Object.entries(severityCount).map(([severity, count]) => ({
+      name: severity.charAt(0).toUpperCase() + severity.slice(1),
+      value: count,
+      percentage: ((count / vessels.length) * 100).toFixed(1)
+    }));
+  };
+
+  // Get route impact analysis
+  const getRouteImpactAnalysis = () => {
+    const vessels = getVesselImpacts();
+    const routeImpacts = {};
+    
+    vessels.forEach(vessel => {
+      vessel.affectedRoutes?.forEach(route => {
+        if (!routeImpacts[route]) {
+          routeImpacts[route] = {
+            route,
+            vessels: 0,
+            totalCosts: 0,
+            averageDelay: 0,
+            cargoValue: 0,
+            delays: []
+          };
+        }
+        routeImpacts[route].vessels++;
+        routeImpacts[route].totalCosts += (vessel.additionalCosts || 0) + (vessel.tariffCost || 0);
+        routeImpacts[route].cargoValue += vessel.cargoValue || 0;
+        if (vessel.delayHours) {
+          routeImpacts[route].delays.push(vessel.delayHours);
+        }
       });
     });
-
-    // High tariffs causing trade route shifts
-    const highTariffs = tariffs.filter(tariff => tariff.currentRate > 20);
-    highTariffs.forEach(tariff => {
-      effects.push({
-        trigger: `High Tariff on ${tariff.products?.[0] || 'Goods'} (${tariff.currentRate}%)`,
-        effect: 'Trade Route Diversion',
-        magnitude: 'Medium',
-        timeframe: '2-6 months',
-        secondaryEffects: [
-          'New port capacity strain',
-          'Shipping line restructuring',
-          'Regional price volatility',
-          'Supply chain reconfiguration'
-        ]
-      });
-    });
-
-    return effects.slice(0, 10); // Top 10 cascading effects
-  };
-
-  const calculateCompoundRisks = () => {
-    const risks = [];
     
-    // Identify ports with multiple risk factors
-    ports.forEach(port => {
-      const portTariffs = tariffs.filter(tariff => 
-        tariff.countries && tariff.countries.includes(port.country)
-      );
-      const portDisruptions = disruptions.filter(disruption => 
-        disruption.affected_regions?.some(region => 
-          region === port.region || getRegionFromCountry(port.country) === region
-        )
-      );
-
-      if (portTariffs.length > 0 && portDisruptions.length > 0) {
-        const riskScore = calculateRiskScore(portTariffs, portDisruptions, port);
-        risks.push({
-          location: port.name,
-          country: port.country,
-          riskScore: riskScore,
-          riskLevel: getRiskLevel(riskScore),
-          factors: {
-            tariffCount: portTariffs.length,
-            disruptionCount: portDisruptions.length,
-            strategicImportance: port.strategic_importance,
-            avgTariffRate: portTariffs.reduce((sum, t) => sum + t.currentRate, 0) / portTariffs.length
-          },
-          mitigationPriority: riskScore > 70 ? 'Critical' : riskScore > 50 ? 'High' : 'Medium'
-        });
-      }
-    });
-
-    return risks.sort((a, b) => b.riskScore - a.riskScore).slice(0, 15);
+    return Object.values(routeImpacts).map(route => ({
+      ...route,
+      averageDelay: route.delays.length > 0 ? 
+        route.delays.reduce((a, b) => a + b, 0) / route.delays.length : 0,
+      avgCostPerVessel: route.totalCosts / route.vessels
+    })).sort((a, b) => b.totalCosts - a.totalCosts);
   };
 
-  const calculateRiskScore = (tariffs, disruptions, port) => {
-    const tariffScore = tariffs.reduce((sum, t) => sum + t.currentRate, 0) / 4; // Normalize
-    const disruptionScore = disruptions.reduce((sum, d) => sum + getSeverityScore(d.severity), 0);
-    const portVulnerability = (100 - port.strategic_importance) * 0.3; // Lower importance = higher vulnerability
-    
-    return Math.min(100, tariffScore + disruptionScore + portVulnerability);
+  const formatCurrency = (amount) => {
+    if (amount >= 1000000000) return `$${(amount / 1000000000).toFixed(1)}B`;
+    if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`;
+    return `$${amount.toFixed(0)}`;
   };
 
-  const getRiskLevel = (score) => {
-    if (score >= 80) return 'Critical';
-    if (score >= 60) return 'High';
-    if (score >= 40) return 'Medium';
-    return 'Low';
+  const getSeverityColor = (severity) => {
+    switch (severity?.toLowerCase()) {
+      case 'critical': return 'bg-red-100 text-red-800 border-red-200';
+      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'low': return 'bg-green-100 text-green-800 border-green-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
   };
 
-  const generateAdaptationStrategies = () => {
-    return [
-      {
-        strategy: 'Diversified Port Networks',
-        description: 'Establish partnerships with multiple ports across different regions to reduce dependency on single locations.',
-        applicability: 'High-volume shippers',
-        timeframe: '6-18 months',
-        costImpact: 'Medium',
-        effectiveness: 85
-      },
-      {
-        strategy: 'Dynamic Route Optimization',
-        description: 'Implement AI-driven route optimization systems that can rapidly adjust to tariff changes and disruptions.',
-        applicability: 'Shipping lines & logistics providers',
-        timeframe: '3-12 months',
-        costImpact: 'High',
-        effectiveness: 92
-      },
-      {
-        strategy: 'Inventory Buffer Strategies',
-        description: 'Maintain strategic inventory buffers at key locations to absorb supply chain shocks.',
-        applicability: 'Manufacturers & retailers',
-        timeframe: '2-6 months',
-        costImpact: 'High',
-        effectiveness: 78
-      },
-      {
-        strategy: 'Trade Agreement Optimization',
-        description: 'Leverage preferential trade agreements and free trade zones to minimize tariff exposure.',
-        applicability: 'All importers/exporters',
-        timeframe: '1-4 months',
-        costImpact: 'Low',
-        effectiveness: 65
-      },
-      {
-        strategy: 'Supply Chain Regionalization',
-        description: 'Shift to more regional supply chains to reduce exposure to global disruptions and tariffs.',
-        applicability: 'Multinational corporations',
-        timeframe: '12-36 months',
-        costImpact: 'Very High',
-        effectiveness: 88
-      },
-      {
-        strategy: 'Real-Time Monitoring Systems',
-        description: 'Deploy advanced monitoring and early warning systems for proactive risk management.',
-        applicability: 'All stakeholders',
-        timeframe: '2-8 months',
-        costImpact: 'Medium',
-        effectiveness: 82
-      }
-    ];
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'delayed': return 'bg-red-100 text-red-800';
+      case 'diverted': return 'bg-orange-100 text-orange-800';
+      case 'under repair': return 'bg-red-100 text-red-800';
+      case 'at anchor': return 'bg-yellow-100 text-yellow-800';
+      case 'in port': return 'bg-blue-100 text-blue-800';
+      case 'en route': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
-  const getImpactColor = (value) => {
-    if (value >= 80) return '#dc2626';
-    if (value >= 60) return '#f59e0b';
-    if (value >= 40) return '#3b82f6';
-    return '#10b981';
-  };
+  const CHART_COLORS = ['#3B82F6', '#EF4444', '#F59E0B', '#10B981', '#8B5CF6', '#F97316', '#06B6D4', '#84CC16'];
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 p-6 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading comprehensive impact analysis...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading vessel impact analysis...</p>
         </div>
       </div>
     );
   }
 
-  const regionalData = getRegionalAnalysis();
-  const vulnerabilityData = getSupplyChainVulnerability();
-  const tradeFlowData = getTradeFlowAnalysis();
-  const projectionData = getEconomicProjections();
-  const sectorData = getSectorImpacts();
+  const impactChains = getImpactChainAnalysis();
+  const stats = getImpactChainStatistics();
+  const allVessels = impactChains.flatMap(chain => chain.impactedVessels);
 
   return (
-    <div className="min-h-screen bg-slate-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-100 mb-2">Comprehensive Impact Analysis</h1>
-          <p className="text-slate-400">Deep analysis of trade disruptions, tariff impacts, and economic forecasts</p>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Impact Chain Analysis</h1>
+          <p className="text-slate-600 mt-2">
+            How tariffs and disruptions affect ports, which then impact vessels using those ports
+          </p>
         </div>
-
-        {/* Key Metrics Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-sm">Active Trade Routes</p>
-                  <p className="text-2xl font-bold text-slate-100">{tradeFlowData.length}</p>
-                  <p className="text-green-400 text-xs">Major corridors</p>
-                </div>
-                <Globe className="w-8 h-8 text-blue-400" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-sm">High-Risk Chokepoints</p>
-                  <p className="text-2xl font-bold text-slate-100">{vulnerabilityData.filter(v => v.risk > 70).length}</p>
-                  <p className="text-red-400 text-xs">Critical zones</p>
-                </div>
-                <AlertTriangle className="w-8 h-8 text-amber-400" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-sm">Active Chokepoints</p>
-                  <p className="text-2xl font-bold text-slate-100">{vulnerabilityData.filter(v => v.risk > 70).length}</p>
-                  <p className="text-orange-400 text-xs">High risk zones</p>
-                </div>
-                <MapPin className="w-8 h-8 text-red-400" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-sm">Risk Trend</p>
-                  <p className="text-2xl font-bold text-slate-100">Increasing</p>
-                  <p className="text-purple-400 text-xs">Based on analysis</p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-purple-400" />
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex gap-2">
+          <Button
+            variant={selectedTimeframe === '6months' ? 'default' : 'outline'}
+            onClick={() => setSelectedTimeframe('6months')}
+            size="sm"
+          >
+            6 Months
+          </Button>
+          <Button
+            variant={selectedTimeframe === '1year' ? 'default' : 'outline'}
+            onClick={() => setSelectedTimeframe('1year')}
+            size="sm"
+          >
+            1 Year
+          </Button>
+          <Button
+            variant={selectedTimeframe === '2years' ? 'default' : 'outline'}
+            onClick={() => setSelectedTimeframe('2years')}
+            size="sm"
+          >
+            2 Years
+          </Button>
         </div>
-
-        {/* Main Analysis Tabs */}
-        <Tabs defaultValue="regional" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 bg-slate-800/50">
-            <TabsTrigger value="regional">Regional Analysis</TabsTrigger>
-            <TabsTrigger value="vulnerability">Supply Chain Risk</TabsTrigger>
-            <TabsTrigger value="projections">Economic Forecasts</TabsTrigger>
-            <TabsTrigger value="sectors">Sector Impact</TabsTrigger>
-            <TabsTrigger value="scenarios">Scenario Planning</TabsTrigger>
-          </TabsList>
-
-          {/* Regional Analysis */}
-          <TabsContent value="regional" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-                <CardHeader>
-                  <CardTitle className="text-slate-100">Regional Risk Assessment</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={regionalData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                      <XAxis dataKey="name" stroke="#9ca3af" angle={-45} textAnchor="end" height={80} />
-                      <YAxis stroke="#9ca3af" />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
-                        labelStyle={{ color: '#f9fafb' }}
-                      />
-                      <Bar dataKey="riskScore" fill="#ef4444" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-                <CardHeader>
-                  <CardTitle className="text-slate-100">Regional Trade Value Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={regionalData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="economicValue"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {regionalData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={getImpactColor(entry.riskScore)} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => [`$${(value / 1000000000).toFixed(1)}B`, 'Economic Value']} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Regional Details Table */}
-            <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-              <CardHeader>
-                <CardTitle className="text-slate-100">Detailed Regional Analysis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-700">
-                        <th className="text-left text-slate-300 p-3">Region</th>
-                        <th className="text-left text-slate-300 p-3">Ports</th>
-                        <th className="text-left text-slate-300 p-3">Throughput</th>
-                        <th className="text-left text-slate-300 p-3">Economic Value</th>
-                        <th className="text-left text-slate-300 p-3">Disruptions</th>
-                        <th className="text-left text-slate-300 p-3">Risk Score</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {regionalData.map((region, index) => (
-                        <tr key={index} className="border-b border-slate-700/50">
-                          <td className="p-3 text-slate-100 font-medium">{region.name}</td>
-                          <td className="p-3 text-slate-300">{region.ports}</td>
-                          <td className="p-3 text-slate-300">{region.throughputFormatted}</td>
-                          <td className="p-3 text-slate-300">{region.economicValueFormatted}</td>
-                          <td className="p-3 text-slate-300">{region.disruptions}</td>
-                          <td className="p-3">
-                            <Badge 
-                              className={`${region.riskScore > 70 ? 'bg-red-500' : region.riskScore > 40 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                            >
-                              {region.riskScore.toFixed(0)}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Supply Chain Vulnerability */}
-          <TabsContent value="vulnerability" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-                <CardHeader>
-                  <CardTitle className="text-slate-100">Critical Chokepoints Risk</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={vulnerabilityData} layout="horizontal">
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                      <XAxis type="number" stroke="#9ca3af" />
-                      <YAxis dataKey="name" type="category" stroke="#9ca3af" width={120} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
-                        labelStyle={{ color: '#f9fafb' }}
-                      />
-                      <Bar dataKey="risk" fill="#ef4444" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-                <CardHeader>
-                  <CardTitle className="text-slate-100">Trade Flow Resilience</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <ScatterChart data={tradeFlowData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                      <XAxis dataKey="volume" stroke="#9ca3af" name="Volume (M TEU)" />
-                      <YAxis dataKey="value" stroke="#9ca3af" name="Value ($B)" />
-                      <Tooltip 
-                        cursor={{ strokeDasharray: '3 3' }}
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            const data = payload[0].payload;
-                            return (
-                              <div className="p-3 bg-slate-800 border border-slate-700 rounded-lg">
-                                <p className="text-slate-100 font-semibold">{data.route}</p>
-                                <p className="text-slate-300">Volume: {data.volume}M TEU</p>
-                                <p className="text-slate-300">Value: ${data.value}B</p>
-                                <p className="text-slate-300">Growth: {data.growth}%</p>
-                                <p className="text-slate-300">Risk: {data.risk}</p>
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Scatter name="Trade Routes" dataKey="value" fill="#3b82f6" />
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Vulnerability Details */}
-            <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-              <CardHeader>
-                <CardTitle className="text-slate-100">Chokepoint Analysis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {vulnerabilityData.map((point, index) => (
-                    <div key={index} className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/30">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-slate-100 font-semibold">{point.name}</h4>
-                        <Badge className={`${point.risk > 80 ? 'bg-red-500' : point.risk > 60 ? 'bg-orange-500' : 'bg-yellow-500'}`}>
-                          {point.risk}% Risk
-                        </Badge>
-                      </div>
-                      <div className="space-y-2 text-sm">
-                        <p className="text-slate-300">
-                          <span className="text-slate-400">Impact:</span> {point.impact}
-                        </p>
-                        <p className="text-slate-300">
-                          <span className="text-slate-400">Daily Traffic:</span> {point.dailyTraffic}
-                        </p>
-                        <p className="text-slate-300">
-                          <span className="text-slate-400">Significance:</span> {point.significance}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Economic Projections */}
-          <TabsContent value="projections" className="space-y-6">
-            <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-              <CardHeader>
-                <CardTitle className="text-slate-100">Economic Impact Projections (2025-2035)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <LineChart data={projectionData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="year" stroke="#9ca3af" />
-                    <YAxis stroke="#9ca3af" tickFormatter={(value) => `$${(value / 1000).toFixed(0)}T`} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
-                      labelStyle={{ color: '#f9fafb' }}
-                      formatter={(value, name) => [`$${(value / 1000).toFixed(1)}T`, name]}
-                    />
-                    <Legend />
-                    <Line name="Baseline" type="monotone" dataKey="baseline" stroke="#3b82f6" strokeWidth={2} />
-                    <Line name="With Disruptions" type="monotone" dataKey="withDisruptions" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" />
-                    <Line name="With Tariffs" type="monotone" dataKey="withTariffs" stroke="#f59e0b" strokeWidth={2} strokeDasharray="3 3" />
-                    <Line name="Optimistic" type="monotone" dataKey="optimistic" stroke="#10b981" strokeWidth={2} />
-                    <Line name="Pessimistic" type="monotone" dataKey="pessimistic" stroke="#dc2626" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Sector Impact */}
-          <TabsContent value="sectors" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-                <CardHeader>
-                  <CardTitle className="text-slate-100">Sector Impact Levels</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={sectorData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                      <XAxis dataKey="sector" stroke="#9ca3af" angle={-45} textAnchor="end" height={100} />
-                      <YAxis stroke="#9ca3af" />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
-                        labelStyle={{ color: '#f9fafb' }}
-                      />
-                      <Bar dataKey="impact" fill="#6366f1" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-                <CardHeader>
-                  <CardTitle className="text-slate-100">Sector Value at Risk</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={sectorData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, percent }) => `${name.split(' ')[0]} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {sectorData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={getImpactColor(entry.impact)} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => [`$${value}B`, 'Value at Risk']} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Sector Details */}
-            <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-              <CardHeader>
-                <CardTitle className="text-slate-100">Detailed Sector Analysis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sectorData.map((sector, index) => (
-                    <div key={index} className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/30">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-slate-100 font-semibold">{sector.sector}</h4>
-                        <Badge className={`${sector.impact > 80 ? 'bg-red-500' : sector.impact > 60 ? 'bg-orange-500' : 'bg-green-500'}`}>
-                          {sector.affected}
-                        </Badge>
-                      </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Impact Score:</span>
-                          <span className="text-slate-100">{sector.impact}/100</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Value at Risk:</span>
-                          <span className="text-slate-100">${sector.value}B</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Trend:</span>
-                          <span className={`${sector.trend === 'Increasing' ? 'text-red-400' : sector.trend === 'Stable' ? 'text-blue-400' : 'text-green-400'}`}>
-                            {sector.trend}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Scenario Planning */}
-          <TabsContent value="scenarios" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[
-                {
-                  title: "Optimistic Scenario",
-                  description: "Stable geopolitics, reduced tariffs, technological advancement",
-                  probability: 25,
-                  impact: "+15% trade growth",
-                  color: "green"
-                },
-                {
-                  title: "Base Case Scenario", 
-                  description: "Current trends continue, moderate disruptions persist",
-                  probability: 50,
-                  impact: "+3% trade growth",
-                  color: "blue"
-                },
-                {
-                  title: "Pessimistic Scenario",
-                  description: "Increased conflicts, supply chain breakdowns, trade wars",
-                  probability: 25,
-                  impact: "-8% trade decline",
-                  color: "red"
-                }
-              ].map((scenario, index) => (
-                <Card key={index} className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-                  <CardHeader>
-                    <CardTitle className="text-slate-100">{scenario.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-slate-300 text-sm mb-4">{scenario.description}</p>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-slate-400 text-sm">Probability</span>
-                          <span className="text-slate-100 text-sm">{scenario.probability}%</span>
-                        </div>
-                        <div className="w-full bg-slate-700 rounded-full h-2">
-                          <div 
-                            className={`h-2 rounded-full ${scenario.color === 'green' ? 'bg-green-500' : scenario.color === 'blue' ? 'bg-blue-500' : 'bg-red-500'}`}
-                            style={{ width: `${scenario.probability}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-slate-700">
-                        <span className="text-slate-400 text-sm">Expected Impact: </span>
-                        <span className={`text-sm font-semibold ${scenario.color === 'green' ? 'text-green-400' : scenario.color === 'blue' ? 'text-blue-400' : 'text-red-400'}`}>
-                          {scenario.impact}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Mitigation Strategies */}
-            <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-              <CardHeader>
-                <CardTitle className="text-slate-100">Risk Mitigation Strategies</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="text-slate-200 font-semibold mb-3">Short-term (0-2 years)</h4>
-                    <ul className="space-y-2 text-sm text-slate-300">
-                      <li>• Diversify supplier base across multiple regions</li>
-                      <li>• Increase inventory buffers for critical components</li>
-                      <li>• Implement real-time supply chain monitoring</li>
-                      <li>• Establish alternative shipping routes</li>
-                      <li>• Negotiate flexible contract terms</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="text-slate-200 font-semibold mb-3">Long-term (2-10 years)</h4>
-                    <ul className="space-y-2 text-sm text-slate-300">
-                      <li>• Invest in regional manufacturing capabilities</li>
-                      <li>• Develop autonomous shipping technologies</li>
-                      <li>• Build strategic partnerships with key suppliers</li>
-                      <li>• Implement circular economy principles</li>
-                      <li>• Create resilient digital infrastructure</li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
       </div>
+
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Impact Chains</p>
+                <p className="text-2xl font-bold text-slate-900">{stats.totalImpactChains.toLocaleString()}</p>
+              </div>
+              <Navigation className="h-8 w-8 text-blue-600" />
+            </div>
+            <div className="mt-4 flex text-sm text-slate-600">
+              <span className="text-red-600">{stats.disruptionChains}</span>&nbsp;disruption,&nbsp;
+              <span className="text-orange-600">{stats.tariffChains}</span>&nbsp;tariff
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Affected Ports</p>
+                <p className="text-2xl font-bold text-slate-900">{stats.totalAffectedPorts}</p>
+              </div>
+              <MapPin className="h-8 w-8 text-green-600" />
+            </div>
+            <div className="mt-4 text-sm text-slate-600">
+              Avg {stats.averageVesselsPerPort.toFixed(1)} vessels per port
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Impacted Vessels</p>
+                <p className="text-2xl font-bold text-red-600">{stats.totalVessels}</p>
+              </div>
+              <Ship className="h-8 w-8 text-red-600" />
+            </div>
+            <div className="mt-4 text-sm text-slate-600">
+              Critical: {stats.criticalImpacts} | High: {stats.highImpacts}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Total Impact Costs</p>
+                <p className="text-2xl font-bold text-slate-900">{formatCurrency(stats.totalDelayCosts + stats.totalTariffCosts)}</p>
+              </div>
+              <DollarSign className="h-8 w-8 text-green-600" />
+            </div>
+            <div className="mt-4 text-sm text-slate-600">
+              Avg delay: {stats.averageDelayHours.toFixed(0)}h
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Ship className="h-5 w-5" />
+              Vessel Type Impact Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={typeBreakdown}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percentage }) => `${name} (${percentage}%)`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {typeBreakdown.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Impact Severity Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={severityBreakdown}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="value" fill="#3B82F6" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Route Impact Analysis */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Navigation className="h-5 w-5" />
+            Most Impacted Trade Routes
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {routeAnalysis.slice(0, 10).map((route, index) => (
+              <div key={route.route} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-semibold text-slate-700">#{index + 1}</span>
+                    <div>
+                      <h3 className="font-medium text-slate-900">{route.route}</h3>
+                      <p className="text-sm text-slate-600">
+                        {route.vessels} vessels affected • Avg delay: {route.averageDelay.toFixed(0)}h
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-slate-900">{formatCurrency(route.totalCosts)}</p>
+                  <p className="text-sm text-slate-600">Total impact costs</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Impact Chain Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Navigation className="h-5 w-5" />
+            Impact Chain Analysis
+          </CardTitle>
+          <p className="text-sm text-slate-600 mt-1">
+            Showing how tariffs and disruptions flow through ports to affect vessels
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6 max-h-96 overflow-y-auto">
+            {impactChains.slice(0, 20).map((chain) => (
+              <div key={chain.id} className="border border-slate-200 rounded-lg p-4">
+                {/* Impact Source */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Badge className={chain.type === 'disruption' ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'}>
+                        {chain.type.toUpperCase()}
+                      </Badge>
+                      <Badge className={getSeverityColor(chain.impactSeverity)}>
+                        {chain.impactSeverity}
+                      </Badge>
+                    </div>
+                    <h3 className="font-semibold text-slate-900 mb-1">
+                      {chain.source.title || chain.source.name}
+                    </h3>
+                    {chain.type === 'tariff' && chain.totalTariffRate && (
+                      <p className="text-sm text-orange-600 font-medium">
+                        Tariff Rate: {chain.totalTariffRate}%
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-slate-900">{formatCurrency(chain.totalCosts)}</p>
+                    <p className="text-xs text-slate-600">Total impact cost</p>
+                  </div>
+                </div>
+
+                {/* Arrow indicating flow */}
+                <div className="flex items-center justify-center my-3">
+                  <div className="flex items-center text-slate-400">
+                    <span className="text-sm">affects</span>
+                    <svg className="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Affected Port */}
+                <div className="bg-blue-50 rounded-lg p-3 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin className="h-4 w-4 text-blue-600" />
+                    <h4 className="font-medium text-slate-900">{chain.affectedPort.name}</h4>
+                    <span className="text-sm text-slate-600">
+                      {chain.affectedPort.country}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {chain.affectedPort.strategic_importance && (
+                      <div>
+                        <span className="text-slate-600">Strategic Importance:</span>
+                        <span className="ml-1 font-medium">{chain.affectedPort.strategic_importance}</span>
+                      </div>
+                    )}
+                    {chain.affectedPort.annual_throughput && (
+                      <div>
+                        <span className="text-slate-600">Annual TEU:</span>
+                        <span className="ml-1 font-medium">{(chain.affectedPort.annual_throughput / 1000000).toFixed(1)}M</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Arrow indicating flow */}
+                <div className="flex items-center justify-center my-3">
+                  <div className="flex items-center text-slate-400">
+                    <span className="text-sm">impacts</span>
+                    <svg className="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Impacted Vessels */}
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Ship className="h-4 w-4 text-slate-600" />
+                    <h4 className="font-medium text-slate-900">
+                      {chain.impactedVessels.length} Vessels Affected
+                    </h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {chain.impactedVessels.slice(0, 4).map((vessel, index) => (
+                      <div key={vessel.id} className="bg-white rounded p-2 text-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-slate-900">{vessel.name}</span>
+                          <Badge className={getStatusColor(vessel.status)} size="sm">
+                            {vessel.status}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          <span>{vessel.type}</span> • <span>{vessel.flagState}</span>
+                        </div>
+                        <div className="text-xs text-slate-600 mt-1">
+                          {vessel.impactType === 'disruption' && vessel.delayHours && (
+                            <span className="text-red-600">Delay: {vessel.delayHours}h</span>
+                          )}
+                          {vessel.impactType === 'tariff' && vessel.tariffRate && (
+                            <span className="text-orange-600">Tariff: {vessel.tariffRate}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {chain.impactedVessels.length > 4 && (
+                    <div className="mt-2 text-xs text-slate-500 text-center">
+                      +{chain.impactedVessels.length - 4} more vessels affected
+                    </div>
+                  )}
+
+                  {/* Summary stats for this chain */}
+                  <div className="mt-3 pt-3 border-t border-slate-200 grid grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <span className="text-slate-600">Total Cost:</span>
+                      <p className="font-medium text-red-600">{formatCurrency(chain.totalCosts)}</p>
+                    </div>
+                    {chain.totalDelayHours && (
+                      <div>
+                        <span className="text-slate-600">Total Delays:</span>
+                        <p className="font-medium text-orange-600">{chain.totalDelayHours}h</p>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-slate-600">Vessels:</span>
+                      <p className="font-medium text-slate-900">{chain.impactedVessels.length}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
-}
-
-// Helper functions for the new comprehensive analysis
-function calculateDistance(port1, port2) {
-  // Simple distance calculation (in practice would use great circle distance)
-  const lat1 = port1.coordinates?.lat || port1.latitude || 0;
-  const lon1 = port1.coordinates?.lng || port1.longitude || 0;
-  const lat2 = port2.coordinates?.lat || port2.latitude || 0;
-  const lon2 = port2.coordinates?.lng || port2.longitude || 0;
-  
-  const R = 6371; // Earth's radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return Math.round(R * c);
-}
-
-function calculateAdditionalCost(port1, port2) {
-  const distance = calculateDistance(port1, port2);
-  const costPerKm = 0.8; // USD per km per TEU
-  return Math.round(distance * costPerKm);
-}
-
-function generateAlternativeRoutes(route) {
-  const alternatives = {
-    'Shanghai → Los Angeles': ['Shanghai → Seattle → Los Angeles', 'Shanghai → Vancouver → Los Angeles'],
-    'Singapore → Rotterdam': ['Singapore → Suez → Rotterdam', 'Singapore → Cape → Rotterdam'],
-    'Hong Kong → New York': ['Hong Kong → Los Angeles → New York', 'Hong Kong → Vancouver → New York']
-  };
-  return alternatives[route.route] || ['Alternative route analysis pending'];
-}
-
-function estimateImpactedCargo(route, tariffRate) {
-  const categories = ['Electronics', 'Textiles', 'Machinery', 'Chemicals', 'Consumer Goods'];
-  return categories.slice(0, Math.ceil(tariffRate / 5)).map(cat => ({
-    category: cat,
-    volumeAffected: Math.round(route.avgTEU * (tariffRate / 100) * Math.random() * 1000),
-    valueImpact: Math.round(Math.random() * 50 + 10) // Million USD
-  }));
-}
-
-function calculateCapacityUtilization(port, volumeChange) {
-  const baseUtilization = 0.75; // Assume 75% base utilization
-  const newUtilization = baseUtilization * (1 + volumeChange);
-  return Math.round(Math.max(0.1, Math.min(1.0, newUtilization)) * 100);
-}
-
-function assessCongestionRisk(port, volumeChange) {
-  const utilizationChange = volumeChange;
-  if (utilizationChange < -0.1) return 'Reduced';
-  if (utilizationChange > 0.1) return 'High';
-  return 'Stable';
-}
-
-function calculateInfrastructureStrain(port, volumeChange) {
-  const strainLevels = ['Minimal', 'Low', 'Moderate', 'High', 'Critical'];
-  const baseStrain = 2; // Moderate
-  const adjustment = Math.round(volumeChange * 10);
-  const newStrain = Math.max(0, Math.min(4, baseStrain + adjustment));
-  return strainLevels[newStrain];
-}
-
-function generateCrossImpactMatrix(tariffs, disruptions, ports) {
-  const matrix = [];
-  
-  // Sample cross-impact relationships
-  const relationships = [
-    { factor1: 'US-China Tariffs', factor2: 'Shanghai Port', impact: 'High Negative', strength: 85 },
-    { factor1: 'Suez Canal Disruption', factor2: 'Singapore Port', impact: 'High Positive', strength: 78 },
-    { factor1: 'EU Carbon Tax', factor2: 'European Ports', impact: 'Moderate Negative', strength: 65 },
-    { factor1: 'Red Sea Tensions', factor2: 'Mediterranean Routes', impact: 'High Negative', strength: 92 },
-    { factor1: 'India Textile Tariffs', factor2: 'Bangladesh Ports', impact: 'Moderate Positive', strength: 58 }
-  ];
-  
-  return relationships;
-}
-
-function calculateEconomicRippleEffects(analysis) {
-  return {
-    primaryEffects: analysis.tariffPortImpacts.length + analysis.vesselRoutingImpacts.length,
-    secondaryEffects: Math.round(analysis.tariffPortImpacts.length * 1.5),
-    tertiaryEffects: Math.round(analysis.tariffPortImpacts.length * 0.8),
-    totalEconomicImpact: Math.round(Math.random() * 500 + 200), // Billion USD
-    affectedCountries: Math.min(50, analysis.tariffPortImpacts.length * 2),
-    timeToFullImpact: '12-18 months'
-  };
-}
-
-function generateTimeSeriesProjections(analysis) {
-  const years = [2024, 2025, 2026, 2027, 2028, 2029];
-  return years.map(year => ({
-    year,
-    tariffImpact: Math.round(Math.random() * 100 + 50),
-    portEfficiency: Math.round(Math.random() * 20 + 80),
-    vesselDelays: Math.round(Math.random() * 15 + 5),
-    costIncrease: Math.round(Math.random() * 25 + 10),
-    routeDiversification: Math.round(Math.random() * 30 + 20)
-  }));
 }

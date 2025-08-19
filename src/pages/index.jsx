@@ -7,6 +7,7 @@ import ImpactedPorts from "./ImpactedPorts.jsx";
 import VesselTracking from "./VesselTracking.jsx";
 import TariffTracking from "./TariffTracking.jsx";
 import TradeRoutes from "./TradeRoutes.jsx";
+import LivePortView from "./LivePortView.jsx";
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -27,6 +28,8 @@ const PAGES = {
     TariffTracking: TariffTracking,
     
     TradeRoutes: TradeRoutes,
+    
+    LivePortView: LivePortView,
     
 }
 
@@ -73,6 +76,8 @@ function PagesContent() {
                 <Route path="/TariffTracking" element={<TariffTracking />} />
                 
                 <Route path="/TradeRoutes" element={<TradeRoutes />} />
+                
+                <Route path="/LivePortView" element={<LivePortView />} />
                 
             </Routes>
         </Layout>

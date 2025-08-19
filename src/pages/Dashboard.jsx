@@ -361,23 +361,8 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* Compact Date Range Filter - Minimal space usage */}
-          <div className="mt-4 mb-6">
-            <div className="flex items-center gap-4 mb-2">
-              <h3 className="text-lg font-semibold text-slate-100">Date Filter</h3>
-              <div className="flex items-center gap-4 text-xs text-slate-400">
-                <span>Current: {filteredDisruptions.filter(d => {
-                  const disruptionDate = safeParseDate(d.start_date || d.date);
-                  return disruptionDate && disruptionDate <= new Date();
-                }).length}</span>
-                <span>Forecasted: {filteredDisruptions.filter(d => {
-                  const disruptionDate = safeParseDate(d.start_date || d.date);
-                  return disruptionDate && disruptionDate > new Date();
-                }).length}</span>
-                <span>Total: {filteredDisruptions.length}</span>
-              </div>
-            </div>
-            
+          {/* Simple Date Range Slicer - Just the slider */}
+          <div className="mt-4 mb-4">
             <DateSlicer
               minDate={dateConfig.min}
               maxDate={dateConfig.max}

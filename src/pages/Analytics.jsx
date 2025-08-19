@@ -8,10 +8,37 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TrendingUp, Globe, AlertTriangle, DollarSign } from "lucide-react";
 import { subDays, isAfter, format, isValid, parseISO } from "date-fns";
 
-const safeParseDate = (dateString) => {
-  if (!dateString) return null;
-  const date = parseISO(dateString);
-  return isValid(date) ? date : null;
+const safeParseDate = (dateInput) => {
+  if (!dateInput) return null;
+  
+  try {
+    // If it's already a Date object, return it if valid
+    if (dateInput instanceof Date) {
+      return isValid(dateInput) ? dateInput : null;
+    }
+    
+    // If it's a number (timestamp), convert to Date
+    if (typeof dateInput === 'number') {
+      const date = new Date(dateInput);
+      return isValid(date) ? date : null;
+    }
+    
+    // If it's a string, try to parse it
+    if (typeof dateInput === 'string') {
+      // Try parseISO first for ISO format dates
+      let date = parseISO(dateInput);
+      if (isValid(date)) return date;
+      
+      // Try new Date() as fallback
+      date = new Date(dateInput);
+      if (isValid(date) && !isNaN(date.getTime())) return date;
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('Error parsing date:', dateInput, error);
+    return null;
+  }
 };
 
 const CustomTrendTooltip = ({ active, payload, label }) => {
@@ -209,14 +236,17 @@ export default function AnalyticsPage() {
 
     // Populate with actual disruption data
     disruptions.forEach(d => {
-        const disruptionDate = safeParseDate(d.start_date);
+        // Try multiple date fields that might exist
+        const dateValue = d.start_date || d.date || d.created_date || d.timestamp;
+        const disruptionDate = safeParseDate(dateValue);
+        
         // Ensure disruptionDate is valid and within the last 30 days
         if (disruptionDate && isAfter(disruptionDate, subDays(today, 30))) {
             const formattedDate = format(disruptionDate, 'MMM d');
             if (trendData[formattedDate] && d.severity) {
                 trendData[formattedDate][d.severity]++;
                 trendData[formattedDate].events.push({
-                  title: d.title,
+                  title: d.title || d.name || 'Unknown Event',
                   region: d.affected_regions && d.affected_regions.length > 0 ? d.affected_regions[0] : 'Global'
                 });
             }

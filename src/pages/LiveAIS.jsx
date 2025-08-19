@@ -110,9 +110,6 @@ export default function LiveAIS() {
     const totalVessels = vessels.length;
     const movingVessels = vessels.filter(v => v.speed > 1).length;
     const stationaryVessels = vessels.filter(v => v.speed <= 1).length;
-    const avgSpeed = vessels.length > 0 ? 
-      (vessels.reduce((sum, v) => sum + v.speed, 0) / vessels.length).toFixed(1) : 0;
-    
     const typeCounts = {};
     vessels.forEach(v => {
       typeCounts[v.shipType] = (typeCounts[v.shipType] || 0) + 1;
@@ -122,7 +119,6 @@ export default function LiveAIS() {
       totalVessels,
       movingVessels,
       stationaryVessels,
-      avgSpeed,
       typeCounts
     };
   }, [vessels]);
@@ -217,17 +213,7 @@ export default function LiveAIS() {
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-400">Avg Speed</p>
-                  <p className="text-2xl font-bold text-purple-400">{stats.avgSpeed} knots</p>
-                </div>
-                <Zap className="h-8 w-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
+
         </div>
 
         {/* Filters */}

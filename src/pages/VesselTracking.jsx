@@ -436,7 +436,7 @@ export default function VesselTracking() {
 
   const impactedVessels = vessels.filter(v => v.impacted);
   const totalVessels = vessels.length;
-  const averageSpeed = vessels.filter(v => v.speed > 0).reduce((sum, v) => sum + v.speed, 0) / vessels.filter(v => v.speed > 0).length || 0;
+
 
   if (isLoading) {
     return (
@@ -522,18 +522,7 @@ export default function VesselTracking() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Avg Speed</p>
-                <p className="text-3xl font-bold text-blue-600">{averageSpeed.toFixed(1)}</p>
-                <p className="text-xs text-gray-500 mt-1">Knots (underway vessels)</p>
-              </div>
-              <Zap className="h-12 w-12 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
+
       </div>
 
       {/* Search and Filters */}

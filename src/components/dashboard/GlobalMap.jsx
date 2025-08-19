@@ -449,15 +449,6 @@ export default function GlobalMap({
           'Ghana': [7.9465, -1.0232]
         };
 
-        // Get coordinates for the first country (imposing country or main affected country)
-        const mainCountry = tariff.imposingCountry || tariff.countries[0];
-        const coords = countryCoordinates[mainCountry];
-        
-        if (!coords) {
-          console.log('No coordinates found for country:', mainCountry);
-          return;
-        }
-
         // Create tariff icon based on severity/rate
         const getTariffIcon = (rate) => {
           const color = rate > 25 ? '#dc2626' : // Critical (red)
@@ -488,29 +479,40 @@ export default function GlobalMap({
         };
 
         const tariffRate = tariff.currentRate || tariff.rate || 0;
-        const marker = L.marker(coords, {
-          icon: getTariffIcon(tariffRate)
-        }).addTo(map);
 
-        // Create tariff popup content
-        const tariffContent = document.createElement('div');
-        tariffContent.className = 'p-3 min-w-72 max-w-80';
-        
-        const priorityColor = tariff.priority === 'Critical' ? 'bg-red-100 text-red-800 border-red-200' :
-                             tariff.priority === 'High' ? 'bg-orange-100 text-orange-800 border-orange-200' :
-                             tariff.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                             'bg-green-100 text-green-800 border-green-200';
+        // Plot tariff markers on ALL affected/taxed countries
+        tariff.countries.forEach((country, countryIndex) => {
+          const coords = countryCoordinates[country];
+          
+          if (!coords) {
+            console.log('No coordinates found for country:', country);
+            return;
+          }
 
-        const statusColor = tariff.status === 'Active' ? 'bg-green-100 text-green-800 border-green-200' :
-                           tariff.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                           'bg-gray-100 text-gray-800 border-gray-200';
+          const marker = L.marker(coords, {
+            icon: getTariffIcon(tariffRate)
+          }).addTo(map);
 
-        tariffContent.innerHTML = `
+          // Create tariff popup content for this specific country
+          const tariffContent = document.createElement('div');
+          tariffContent.className = 'p-3 min-w-72 max-w-80';
+          
+          const priorityColor = tariff.priority === 'Critical' ? 'bg-red-100 text-red-800 border-red-200' :
+                               tariff.priority === 'High' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                               tariff.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                               'bg-green-100 text-green-800 border-green-200';
+
+          const statusColor = tariff.status === 'Active' ? 'bg-green-100 text-green-800 border-green-200' :
+                             tariff.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                             'bg-gray-100 text-gray-800 border-gray-200';
+
+          tariffContent.innerHTML = `
           <div class="border-b border-gray-200 pb-3 mb-3">
             <div class="flex items-start justify-between">
               <div class="flex-1">
                 <h3 class="font-bold text-slate-900 text-base mb-1">${tariff.title || 'Tariff Measure'}</h3>
-                <p class="text-slate-600 text-sm">${tariff.imposingCountry || mainCountry}</p>
+                <p class="text-slate-600 text-sm">Tariff on: ${country}</p>
+                <p class="text-slate-500 text-xs">Imposed by: ${tariff.imposingCountry || 'Multiple Countries'}</p>
               </div>
               <div class="flex flex-col gap-1">
                 <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium ${priorityColor}">
@@ -583,9 +585,10 @@ export default function GlobalMap({
               </div>
             ` : ''}
           </div>
-        `;
+          `;
 
-        marker.bindPopup(tariffContent);
+          marker.bindPopup(tariffContent);
+        });
       });
     };
 
@@ -595,6 +598,82 @@ export default function GlobalMap({
   return (
     <div className="relative w-full h-full">
       <MapComponent />
+      
+      {/* Map Legend */}
+      <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-lg shadow-lg p-4 max-w-xs z-[1000]">
+        <h3 className="font-semibold text-slate-900 mb-3 flex items-center">
+          <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+          </svg>
+          Map Legend
+        </h3>
+        
+        <div className="space-y-2 text-sm">
+          {/* Ports */}
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-blue-500 rounded-full border border-white shadow-sm"></div>
+            <span className="text-slate-700">Major Ports ({ports.length})</span>
+          </div>
+          
+          {/* Disruptions */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-red-500 rounded-full border border-white shadow-sm"></div>
+              <span className="text-slate-700">Critical Disruptions</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-orange-500 rounded-full border border-white shadow-sm"></div>
+              <span className="text-slate-700">High Impact Disruptions</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full border border-white shadow-sm"></div>
+              <span className="text-slate-700">Medium Impact Disruptions</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full border border-white shadow-sm"></div>
+              <span className="text-slate-700">Low Impact Disruptions</span>
+            </div>
+          </div>
+          
+          {/* Tariffs */}
+          <div className="space-y-1 pt-2 border-t border-slate-200">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-red-600 rounded-sm border border-white shadow-sm flex items-center justify-center">
+                <span className="text-white text-xs font-bold">$</span>
+              </div>
+              <span className="text-slate-700">High Tariffs (&gt;25%)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-orange-600 rounded-sm border border-white shadow-sm flex items-center justify-center">
+                <span className="text-white text-xs font-bold">$</span>
+              </div>
+              <span className="text-slate-700">Medium Tariffs (10-25%)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-yellow-600 rounded-sm border border-white shadow-sm flex items-center justify-center">
+                <span className="text-white text-xs font-bold">$</span>
+              </div>
+              <span className="text-slate-700">Low Tariffs (&lt;10%)</span>
+            </div>
+          </div>
+          
+          {/* Total counts */}
+          <div className="pt-2 border-t border-slate-200 text-xs text-slate-600">
+            <div className="flex justify-between">
+              <span>Ports:</span>
+              <span className="font-medium">{ports.length}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Disruptions:</span>
+              <span className="font-medium">{disruptions.length}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Tariffs:</span>
+              <span className="font-medium">{tariffs.length}</span>
+            </div>
+          </div>
+        </div>
+      </div>
       
       {!mapLoaded && (
         <div className="absolute inset-0 bg-slate-800/50 flex items-center justify-center rounded-lg">
