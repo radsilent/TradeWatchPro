@@ -114,7 +114,7 @@ export default function LivePortView() {
             Live Port View
           </h1>
           <p className="text-slate-600 mt-2">
-            Real-time satellite imagery and activity monitoring of global ports
+            Auto-zoom satellite monitoring with vessel tracking using integrated AIS and RF data streams
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -136,7 +136,7 @@ export default function LivePortView() {
             <div className="flex-1">
               <Select onValueChange={handlePortSelect}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose a port to view live satellite imagery..." />
+                  <SelectValue placeholder="Select a port for auto-zoom satellite tracking with AIS/RF data..." />
                 </SelectTrigger>
                 <SelectContent>
                   {ports.slice(0, 50).map((port) => (
@@ -187,12 +187,35 @@ export default function LivePortView() {
                       <div className="text-center text-white">
                         <Satellite className="h-16 w-16 mx-auto mb-4 opacity-50" />
                         <h3 className="text-2xl font-bold mb-2">Coming Soon</h3>
-                        <p className="text-lg mb-4">Live Satellite Imagery</p>
-                        <p className="text-sm opacity-75 max-w-md mx-auto">
-                          We're integrating with multiple satellite providers to bring you real-time, 
-                          high-resolution imagery of port operations worldwide.
+                        <p className="text-lg mb-4">Live Satellite Port Monitoring</p>
+                        <p className="text-sm opacity-75 max-w-lg mx-auto mb-6">
+                          Advanced satellite imagery with intelligent zoom capabilities to track vessel movements, 
+                          port throughput, and real-time operations using integrated AIS and RF data sources.
                         </p>
-                        <div className="mt-6 space-y-2">
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto mb-6 text-left">
+                          <div className="bg-black/30 rounded-lg p-4">
+                            <h4 className="font-semibold mb-2 text-blue-300">🛰️ Satellite Features</h4>
+                            <ul className="text-xs space-y-1 opacity-90">
+                              <li>• Auto-zoom to port boundaries</li>
+                              <li>• Real-time vessel detection</li>
+                              <li>• Berth occupancy monitoring</li>
+                              <li>• Container yard analysis</li>
+                            </ul>
+                          </div>
+                          
+                          <div className="bg-black/30 rounded-lg p-4">
+                            <h4 className="font-semibold mb-2 text-green-300">📡 Data Integration</h4>
+                            <ul className="text-xs space-y-1 opacity-90">
+                              <li>• AIS vessel positioning</li>
+                              <li>• RF signal tracking</li>
+                              <li>• Throughput calculations</li>
+                              <li>• Movement pattern analysis</li>
+                            </ul>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
                           <div className="flex items-center justify-center gap-2 text-sm">
                             <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                             <span>Satellite connection established</span>
@@ -202,8 +225,16 @@ export default function LivePortView() {
                             <span>Port coordinates locked: {selectedPort.coordinates?.lat?.toFixed(4)}°, {selectedPort.coordinates?.lng?.toFixed(4)}°</span>
                           </div>
                           <div className="flex items-center justify-center gap-2 text-sm">
+                            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                            <span>AIS data stream ready</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-2 text-sm">
+                            <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                            <span>RF signal processing active</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-2 text-sm">
                             <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-                            <span>High-resolution imagery loading...</span>
+                            <span>Auto-zoom and vessel tracking initializing...</span>
                           </div>
                         </div>
                       </div>
@@ -221,7 +252,7 @@ export default function LivePortView() {
                     <div className="bg-black/50 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-sm">
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        <span>Captured: {format(lastUpdate, 'MMM dd, HH:mm UTC')}</span>
+                        <span>Captured: {format(lastUpdate, 'MMM dd, HH:mm')} UTC</span>
                       </div>
                     </div>
                   </div>

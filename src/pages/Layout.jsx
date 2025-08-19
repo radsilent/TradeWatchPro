@@ -3,7 +3,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Globe, AlertTriangle, BarChart3, Map, Activity, Satellite, Target, Ship, DollarSign, MapPin } from "lucide-react";
+import { Globe, AlertTriangle, BarChart3, Map, Activity, Satellite, Target, Ship, DollarSign, MapPin, Monitor } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import VectorStreamLogo from "@/components/VectorStreamLogo";
 import {
@@ -46,15 +46,16 @@ const navigationItems = [
     url: createPageUrl("TradeRoutes"),
     icon: MapPin,
   },
-  {
-    title: "Impact Analysis",
-    url: createPageUrl("ImpactedPorts"),
-    icon: Target,
-  },
+
   {
     title: "Live AIS Feed",
     url: createPageUrl("LiveAIS"),
     icon: Satellite,
+  },
+  {
+    title: "Live Port View",
+    url: createPageUrl("LivePortView"),
+    icon: Monitor,
   },
   {
     title: "Analytics",

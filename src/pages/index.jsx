@@ -3,7 +3,7 @@ import Dashboard from "./Dashboard.jsx";
 import Disruptions from "./Disruptions.jsx";
 import Analytics from "./Analytics.jsx";
 import LiveAIS from "./LiveAIS.jsx";
-import ImpactedPorts from "./ImpactedPorts.jsx";
+
 import VesselTracking from "./VesselTracking.jsx";
 import TariffTracking from "./TariffTracking.jsx";
 import TradeRoutes from "./TradeRoutes.jsx";
@@ -21,7 +21,7 @@ const PAGES = {
     
     LiveAIS: LiveAIS,
     
-    ImpactedPorts: ImpactedPorts,
+
     
     VesselTracking: VesselTracking,
     
@@ -69,7 +69,7 @@ function PagesContent() {
                 
                 <Route path="/LiveAIS" element={<LiveAIS />} />
                 
-                <Route path="/ImpactedPorts" element={<ImpactedPorts />} />
+
                 
                 <Route path="/VesselTracking" element={<VesselTracking />} />
                 
