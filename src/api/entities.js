@@ -10,21 +10,24 @@ export const Port = {
     console.log(`Port.list called with sortBy: ${sortBy}, limit: ${limit}`);
     
     try {
-      // Use static fallback for fast loading
-      console.log('Using static port data for faster loading...');
-      const { getStaticPortData } = await import('./realTimeIntegration');
-      const staticPorts = getStaticPortData();
+      // Use top 200 ports data for comprehensive coverage
+      console.log('Loading top 200 world ports data...');
+      const { generateTop200WorldPorts } = await import('./top200Ports');
+      const portsData = generateTop200WorldPorts();
+      
+      console.log('Sample port data structure:', portsData[0]);
       
       // Sort by strategic importance (descending) 
       if (sortBy === '-strategic_importance') {
-        staticPorts.sort((a, b) => (b.strategic_importance || 0) - (a.strategic_importance || 0));
+        portsData.sort((a, b) => (b.strategic_importance || 0) - (a.strategic_importance || 0));
       }
       
-      const result = staticPorts.slice(0, limit);
-      console.log(`Returning ${result.length} static ports quickly`);
+      const result = portsData.slice(0, limit);
+      console.log(`Returning ${result.length} world ports from top 200 dataset`);
+      console.log('First few ports:', result.slice(0, 3).map(p => ({ name: p.name, coords: p.coordinates })));
       return result;
     } catch (error) {
-      console.error('Error with static port data:', error);
+      console.error('Error loading top 200 ports:', error);
       return [];
     }
   },

@@ -48,8 +48,8 @@ export default function Dashboard() {
       console.log('Loading with cached data for better performance');
       
       const [portsData, disruptionsData] = await Promise.all([
-        Port.list('-strategic_importance', 50), // Reduce to 50 ports for faster loading
-        Disruption.list('-created_date', 20) // Reduce to 20 disruptions for faster loading
+        Port.list('-strategic_importance', 200), // Plot all top 200 ports as requested
+        Disruption.list('-created_date', 20) // Keep disruptions low for performance
       ]);
       
       console.log('Ports loaded:', portsData.length);

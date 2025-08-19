@@ -57,7 +57,11 @@ npm run dev
 
 Once the development server is running, open your browser and navigate to:
 ```
+<<<<<<< HEAD
 http://localhost:5174
+=======
+http://localhost:51XX TBD...
+>>>>>>> bbf14f382d08783900714fa05244a66c567bfb9b
 ```
 
 ### Navigation Structure
@@ -181,6 +185,7 @@ TradeWatchApp/
 }
 ```
 
+<<<<<<< HEAD
 ## 🎨 UI/UX Design System
 
 ### Color Palette
@@ -426,3 +431,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 **Built with ❤️ by VectorStream Systems for the global maritime community**
+=======
+For more information and support, please contact Base44 support at app@base44.com.
+>>>>>>> bbf14f382d08783900714fa05244a66c567bfb9b
