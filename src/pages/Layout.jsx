@@ -3,7 +3,20 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Globe, AlertTriangle, BarChart3, Map, Activity, Satellite, Target, Ship, DollarSign, MapPin, Monitor } from "lucide-react";
+import { 
+  Globe, 
+  AlertTriangle, 
+  BarChart3, 
+  Map, 
+  Activity, 
+  Satellite, 
+  Target, 
+  Ship, 
+  DollarSign, 
+  MapPin, 
+  Monitor, 
+  Brain 
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import VectorStreamLogo from "@/components/VectorStreamLogo";
 import {
@@ -58,9 +71,14 @@ const navigationItems = [
     icon: Monitor,
   },
   {
-    title: "Analytics",
+    title: "Analytics", 
     url: createPageUrl("Analytics"),
     icon: BarChart3,
+  },
+  {
+    title: "AI Projections",
+    url: createPageUrl("AIProjections"),
+    icon: Brain,
   },
 ];
 

@@ -9,6 +9,7 @@ import TariffTracking from "./TariffTracking.jsx";
 import TradeRoutes from "./TradeRoutes.jsx";
 import LivePortView from "./LivePortView.jsx";
 import MobileAppDownload from "./MobileAppDownload.jsx";
+import AIProjections from "./AIProjections.jsx";
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -33,6 +34,8 @@ const PAGES = {
     LivePortView: LivePortView,
     
     MobileAppDownload: MobileAppDownload,
+    
+    AIProjections: AIProjections,
     
 }
 
@@ -83,6 +86,8 @@ function PagesContent() {
                 <Route path="/LivePortView" element={<LivePortView />} />
                 
                 <Route path="/mobile-app-download" element={<MobileAppDownload />} />
+                
+                <Route path="/AIProjections" element={<AIProjections />} />
                 
             </Routes>
         </Layout>

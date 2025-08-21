@@ -21,6 +21,7 @@ import structlog
 
 from models.vessel_prediction import VesselMovementPredictor
 from models.disruption_detection import DisruptionDetector
+from models.location_aware_predictions import LocationAwarePredictor
 from models.economic_impact import EconomicImpactAssessor
 from services.data_pipeline import DataPipeline
 from services.model_manager import ModelManager
@@ -60,6 +61,7 @@ async def lifespan(app: FastAPI):
     await model_manager.initialize()
     
     data_pipeline = DataPipeline(db_manager, model_manager)
+    location_predictor = LocationAwarePredictor(db_manager)
     await data_pipeline.initialize()
     
     # Initialize enhanced data ingestion service
@@ -365,6 +367,91 @@ async def get_performance_analytics():
         raise HTTPException(status_code=500, detail=f"Analytics error: {str(e)}")
 
 # Real-time data endpoints
+# Location-aware prediction endpoints
+@app.get("/predictions/port-congestion")
+async def get_port_congestion_predictions(hours_ahead: int = 72):
+    """Get location-aware port congestion predictions"""
+    try:
+        predictions = await location_predictor.generate_port_congestion_predictions(hours_ahead)
+        return {
+            "predictions": [
+                {
+                    "prediction_id": p.prediction_id,
+                    "location": p.location,
+                    "location_name": p.location_name,
+                    "region": p.region,
+                    "country": p.country,
+                    "prediction_data": p.prediction_data,
+                    "confidence_score": p.confidence_score,
+                    "effective_radius_km": p.effective_radius_km,
+                    "reasoning": p.reasoning
+                }
+                for p in predictions
+            ],
+            "total_predictions": len(predictions),
+            "hours_ahead": hours_ahead,
+            "generated_at": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error("Error generating port congestion predictions", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Prediction generation failed: {str(e)}")
+
+@app.get("/predictions/fuel-index")
+async def get_fuel_index_predictions(hours_ahead: int = 168):
+    """Get location-aware fuel index predictions"""
+    try:
+        predictions = await location_predictor.generate_fuel_index_predictions(hours_ahead)
+        return {
+            "predictions": [
+                {
+                    "prediction_id": p.prediction_id,
+                    "location": p.location,
+                    "location_name": p.location_name,
+                    "region": p.region,
+                    "country": p.country,
+                    "prediction_data": p.prediction_data,
+                    "confidence_score": p.confidence_score,
+                    "effective_radius_km": p.effective_radius_km,
+                    "reasoning": p.reasoning
+                }
+                for p in predictions
+            ],
+            "total_predictions": len(predictions),
+            "hours_ahead": hours_ahead,
+            "generated_at": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error("Error generating fuel index predictions", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Prediction generation failed: {str(e)}")
+
+@app.get("/predictions/route-performance")
+async def get_route_performance_predictions(hours_ahead: int = 336):
+    """Get location-aware route performance predictions"""
+    try:
+        predictions = await location_predictor.generate_route_performance_predictions(hours_ahead)
+        return {
+            "predictions": [
+                {
+                    "prediction_id": p.prediction_id,
+                    "location": p.location,
+                    "location_name": p.location_name,
+                    "region": p.region,
+                    "country": p.country,
+                    "prediction_data": p.prediction_data,
+                    "confidence_score": p.confidence_score,
+                    "effective_radius_km": p.effective_radius_km,
+                    "reasoning": p.reasoning
+                }
+                for p in predictions
+            ],
+            "total_predictions": len(predictions),
+            "hours_ahead": hours_ahead,
+            "generated_at": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error("Error generating route performance predictions", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Prediction generation failed: {str(e)}")
+
 @app.get("/streaming/live-data")
 async def get_live_streaming_data():
     """Get current live streaming data"""

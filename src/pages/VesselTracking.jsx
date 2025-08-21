@@ -35,6 +35,7 @@ export default function VesselTracking() {
   const [viewMode, setViewMode] = useState("grid"); // grid or list
   const [map, setMap] = useState(null);
   const [markersLayer, setMarkersLayer] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
   const mapRef = useRef(null);
 
   // Comprehensive vessel data with key tracked vessels
@@ -226,6 +227,18 @@ export default function VesselTracking() {
     setVessels(keyVessels);
     setFilteredVessels(keyVessels);
     setIsLoading(false);
+    
+    // Mobile detection
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
   // Initialize Leaflet map
@@ -606,8 +619,9 @@ export default function VesselTracking() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          <div style={{ position: 'relative' }}>
-            <div ref={mapRef} style={{ height: '500px', borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+          {!isMobile ? (
+            <div style={{ position: 'relative' }}>
+              <div ref={mapRef} style={{ height: '500px', borderRadius: '8px', border: '1px solid #e5e7eb' }} />
             
             {/* Map Legend */}
             <div style={{
@@ -663,7 +677,36 @@ export default function VesselTracking() {
                 }
               `
             }} />
-          </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                <Ship className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Vessel Positions</h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Interactive map disabled for mobile performance. Vessel details available below.
+              </p>
+              <div className="grid grid-cols-4 gap-3 text-center">
+                <div className="bg-red-50 rounded-lg p-2">
+                  <div className="text-lg font-bold text-red-600">{filteredVessels.filter(v => v.priority === 'Critical').length}</div>
+                  <div className="text-xs text-red-700">Critical</div>
+                </div>
+                <div className="bg-orange-50 rounded-lg p-2">
+                  <div className="text-lg font-bold text-orange-600">{filteredVessels.filter(v => v.priority === 'High').length}</div>
+                  <div className="text-xs text-orange-700">High</div>
+                </div>
+                <div className="bg-yellow-50 rounded-lg p-2">
+                  <div className="text-lg font-bold text-yellow-600">{filteredVessels.filter(v => v.priority === 'Medium').length}</div>
+                  <div className="text-xs text-yellow-700">Medium</div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-2">
+                  <div className="text-lg font-bold text-green-600">{filteredVessels.filter(v => v.priority === 'Low').length}</div>
+                  <div className="text-xs text-green-700">Low</div>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

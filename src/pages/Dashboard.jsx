@@ -6,6 +6,7 @@ import MetricsPanel from "../components/dashboard/MetricsPanel";
 import ActiveAlerts from "../components/dashboard/ActiveAlerts";
 import DisruptionTimeline from "../components/dashboard/DisruptionTimeline";
 import DateSlicer from "../components/dashboard/DateSlicer";
+import AIProjectionsWidget from "../components/dashboard/AIProjectionsWidget";
 import { min, max, isWithinInterval, parseISO, isValid } from "date-fns";
 
 const safeParseDate = (dateInput) => {
@@ -361,19 +362,54 @@ export default function Dashboard() {
             isLoading={isLoading}
           />
 
-          {/* Global Map - Main content taking most of the space */}
-          <div className={`relative ${isMobile ? 'h-[50vh]' : 'h-[70vh] lg:h-[80vh]'}`}>
-            <GlobalMap
-              ports={ports}
-              disruptions={filteredDisruptions}
-              tariffs={tariffs}
-              selectedPort={selectedPort}
-              onPortClick={handlePortClick}
-              center={mapCenter}
-              zoom={mapZoom}
-              isLoading={isLoading}
-            />
-          </div>
+          {/* Global Map - Hidden on mobile, replaced with summary */}
+          {!isMobile ? (
+            <div className="relative h-[70vh] lg:h-[80vh]">
+              <GlobalMap
+                ports={ports}
+                disruptions={filteredDisruptions}
+                tariffs={tariffs}
+                selectedPort={selectedPort}
+                onPortClick={handlePortClick}
+                center={mapCenter}
+                zoom={mapZoom}
+                isLoading={isLoading}
+              />
+            </div>
+          ) : (
+            <div className="bg-slate-800/50 rounded-lg p-6 text-center">
+              <div className="mb-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-900/20 rounded-full mb-4">
+                  <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">Global Maritime Overview</h3>
+                <p className="text-slate-400 text-sm mb-4">
+                  Interactive map disabled for mobile performance. View detailed data below.
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="bg-slate-700/30 rounded-lg p-3">
+                  <div className="text-2xl font-bold text-blue-400">{ports.length}</div>
+                  <div className="text-xs text-slate-400">Active Ports</div>
+                </div>
+                <div className="bg-slate-700/30 rounded-lg p-3">
+                  <div className="text-2xl font-bold text-orange-400">{filteredDisruptions.length}</div>
+                  <div className="text-xs text-slate-400">Disruptions</div>
+                </div>
+                <div className="bg-slate-700/30 rounded-lg p-3">
+                  <div className="text-2xl font-bold text-green-400">{tariffs.length}</div>
+                  <div className="text-xs text-slate-400">Active Tariffs</div>
+                </div>
+              </div>
+              
+              <div className="mt-4 text-xs text-slate-500">
+                💡 Switch to desktop for full interactive map experience
+              </div>
+            </div>
+          )}
 
           {/* Simple Date Range Slicer - Just the slider */}
           <div className="mt-4 mb-4">

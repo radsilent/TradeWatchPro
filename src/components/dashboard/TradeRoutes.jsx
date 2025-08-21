@@ -9,13 +9,27 @@ export default function TradeRoutes({
 }) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
+    
+    // Mobile detection
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
     const timer = setTimeout(() => {
       setMapLoaded(true);
     }, 1000);
-    return () => clearTimeout(timer);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
   // Major global trade routes data with realistic maritime waypoints
@@ -663,13 +677,36 @@ export default function TradeRoutes({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <TradeRoutesMap />
-          
-          {!mapLoaded && (
-            <div className="absolute inset-0 bg-slate-800/50 flex items-center justify-center rounded-lg">
-              <div className="text-center">
-                <Globe className="w-16 h-16 text-slate-400 mx-auto mb-4 animate-spin" />
-                <p className="text-slate-400">Loading trade routes...</p>
+          {!isMobile ? (
+            <>
+              <TradeRoutesMap />
+              {!mapLoaded && (
+                <div className="absolute inset-0 bg-slate-800/50 flex items-center justify-center rounded-lg">
+                  <div className="text-center">
+                    <Globe className="w-16 h-16 text-slate-400 mx-auto mb-4 animate-spin" />
+                    <p className="text-slate-400">Loading trade routes...</p>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-900/20 rounded-full mb-4">
+                <Ship className="w-8 h-8 text-blue-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Trade Routes Overview</h3>
+              <p className="text-slate-400 text-sm mb-4">
+                Interactive route map disabled for mobile performance. Route details available below.
+              </p>
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div className="bg-slate-700/30 rounded-lg p-3">
+                  <div className="text-xl font-bold text-blue-400">{tradeRoutes.length}</div>
+                  <div className="text-xs text-slate-400">Major Routes</div>
+                </div>
+                <div className="bg-slate-700/30 rounded-lg p-3">
+                  <div className="text-xl font-bold text-orange-400">{chokePoints.length}</div>
+                  <div className="text-xs text-slate-400">Chokepoints</div>
+                </div>
               </div>
             </div>
           )}
