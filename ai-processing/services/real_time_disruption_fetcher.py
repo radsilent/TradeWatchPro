@@ -69,13 +69,33 @@ async def get_real_time_disruptions(limit: int = 20) -> List[Dict[str, Any]]:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15), headers=headers) as session:
             tasks = []
             
-            # Fetch from RSS feeds (verified working URLs)
+            # Expanded RSS feeds for comprehensive maritime news coverage
             rss_feeds = {
+                # Core maritime industry sources
                 'splash247': 'https://splash247.com/feed/',
                 'gCaptain': 'https://gcaptain.com/feed/',
                 'maritime_professional': 'https://www.maritimeprofessional.com/rss/news/',
                 'world_maritime_news': 'https://worldmaritimenews.com/feed/',
-                'safety4sea': 'https://safety4sea.com/feed/'
+                'safety4sea': 'https://safety4sea.com/feed/',
+                
+                # Additional maritime and logistics sources
+                'maritime_executive': 'https://maritime-executive.com/rss.xml',
+                'seatrade_maritime': 'https://www.seatrade-maritime.com/rss.xml',
+                'freight_waves': 'https://www.freightwaves.com/feed',
+                'ship_technology': 'https://www.ship-technology.com/feed/',
+                
+                # Geopolitical and security sources (for war/conflict disruptions)
+                'reuters_world': 'https://feeds.reuters.com/reuters/worldNews',
+                'bbc_world': 'https://feeds.bbci.co.uk/news/world/rss.xml',
+                'maritime_security': 'https://gcaptain.com/feed/',
+                
+                # Weather and environmental sources
+                'weather_channel': 'https://weather.com/rss/weather/news',
+                'noaa_weather': 'https://www.weather.gov/source/crh/rss.xml',
+                
+                # Trade and economic sources
+                'trade_winds': 'https://www.tradewindsnews.com/rss',
+                'lloyd_list': 'https://lloydslist.maritimeintelligence.informa.com/rss.xml'
             }
             
             for source, rss_url in rss_feeds.items():
@@ -175,7 +195,7 @@ async def fetch_rss_disruptions(session: aiohttp.ClientSession, source: str, rss
                     items = root.findall('.//item') or root.findall('.//{http://www.w3.org/2005/Atom}entry')
                     logger.info(f"Found {len(items)} items in RSS feed from {source}")
                     
-                    for item in items[:10]:  # Limit to 10 items per feed
+                    for item in items[:20]:  # Increased to 20 items per feed for more coverage
                         title = ""
                         description = ""
                         pub_date = ""
@@ -277,44 +297,104 @@ async def fetch_rss_disruptions(session: aiohttp.ClientSession, source: str, rss
     return disruptions
 
 def is_maritime_relevant(text: str) -> bool:
-    """Check if article text is relevant to maritime operations"""
+    """Check if article text is relevant to maritime operations including weather, war, and geopolitics"""
     text_lower = text.lower()
     
-    # Exclude non-maritime topics
+    # Exclude clearly non-maritime topics but be more selective
     exclude_keywords = [
         'meta', 'facebook', 'instagram', 'ai chat', 'artificial intelligence',
-        'children', 'sensual', 'politics', 'election', 'celebrity', 'entertainment',
-        'sports', 'cryptocurrency', 'bitcoin', 'gaming', 'healthcare', 'covid vaccine',
+        'children', 'sensual', 'celebrity', 'entertainment',
+        'sports', 'cryptocurrency', 'bitcoin', 'gaming', 'covid vaccine',
         'automobile', 'tesla', 'real estate', 'restaurant', 'retail'
     ]
     
     if any(keyword in text_lower for keyword in exclude_keywords):
         return False
     
-    # Maritime-specific keywords (must have at least 2 matches)
+    # Core maritime keywords
     maritime_keywords = [
         'shipping', 'maritime', 'vessel', 'cargo ship', 'container ship', 'port',
         'harbor', 'terminal', 'dock', 'tanker', 'freight', 'supply chain',
         'suez canal', 'panama canal', 'strait', 'navigation', 'coast guard',
         'loading', 'unloading', 'berth', 'anchorage', 'pilot service',
-        'bill of lading', 'manifest', 'customs', 'import', 'export'
+        'bill of lading', 'manifest', 'customs', 'import', 'export', 'fleet'
     ]
     
-    matches = sum(1 for keyword in maritime_keywords if keyword in text_lower)
+    # Weather-related disruption terms
+    weather_keywords = [
+        'storm', 'hurricane', 'typhoon', 'cyclone', 'rough seas', 'ice', 'fog',
+        'weather', 'wind', 'wave', 'tsunami', 'flooding', 'drought', 'monsoon',
+        'tropical storm', 'severe weather', 'gale', 'blizzard', 'climate'
+    ]
     
-    # Additional specific shipping/port terms
+    # War and conflict terms affecting shipping
+    conflict_keywords = [
+        'war', 'conflict', 'military', 'attack', 'missile', 'drone', 'bombing',
+        'invasion', 'blockade', 'embargo', 'sanctions', 'tension', 'dispute',
+        'rebel', 'insurgent', 'terrorism', 'piracy', 'hijack', 'hostage',
+        'security threat', 'naval', 'warship'
+    ]
+    
+    # Geopolitical terms affecting trade
+    geopolitical_keywords = [
+        'trade war', 'tariff', 'sanctions', 'diplomatic', 'border', 'customs',
+        'regulation', 'policy', 'restriction', 'ban', 'quota', 'treaty',
+        'agreement', 'negotiation', 'international', 'china', 'russia', 'ukraine'
+    ]
+    
+    # Critical maritime locations
+    location_keywords = [
+        'suez canal', 'panama canal', 'strait of hormuz', 'strait of malacca',
+        'red sea', 'black sea', 'persian gulf', 'south china sea',
+        'cape of good hope', 'gibraltar', 'bosphorus', 'dardanelles',
+        'english channel', 'baltic sea', 'mediterranean', 'north sea',
+        'gulf of aden', 'caribbean', 'arctic', 'singapore', 'rotterdam',
+        'los angeles', 'long beach', 'shanghai', 'shenzhen', 'hamburg'
+    ]
+    
+    # Shipping companies and specific terms
     specific_terms = [
         'container', 'teu', 'twenty-foot equivalent', 'cargo', 'freight rate',
         'bunker fuel', 'ship fuel', 'maritime law', 'flag state', 'imo',
         'international maritime', 'port authority', 'terminal operator',
         'shipping line', 'maersk', 'msc', 'cosco', 'evergreen line',
-        'cma cgm', 'hapag lloyd', 'shipping alliance', 'suezmax', 'vlcc'
+        'cma cgm', 'hapag lloyd', 'shipping alliance', 'suezmax', 'vlcc',
+        'dry bulk', 'iron ore', 'grain', 'oil tanker', 'lng', 'container vessel'
     ]
     
+    # Count matches in each category
+    maritime_matches = sum(1 for keyword in maritime_keywords if keyword in text_lower)
+    weather_matches = sum(1 for keyword in weather_keywords if keyword in text_lower)
+    conflict_matches = sum(1 for keyword in conflict_keywords if keyword in text_lower)
+    geopolitical_matches = sum(1 for keyword in geopolitical_keywords if keyword in text_lower)
+    location_matches = sum(1 for keyword in location_keywords if keyword in text_lower)
     specific_matches = sum(1 for term in specific_terms if term in text_lower)
     
-    # Must have at least 1 maritime keyword OR 1 specific shipping term (more lenient)
-    return matches >= 1 or specific_matches >= 1
+    # More inclusive criteria to capture weather, war, and geopolitical disruptions
+    total_matches = maritime_matches + weather_matches + conflict_matches + geopolitical_matches + location_matches + specific_matches
+    
+    # Accept if we have:
+    # - Any critical location (always relevant to shipping)
+    # - Maritime terms + any disruption category
+    # - Weather/conflict/geopolitical terms that could affect shipping
+    # - Any specific shipping terms
+    
+    if location_matches >= 1:
+        return True
+    if maritime_matches >= 1:
+        return True
+    if specific_matches >= 1:
+        return True
+    if weather_matches >= 1 and ('shipping' in text_lower or 'port' in text_lower or 'vessel' in text_lower):
+        return True
+    if conflict_matches >= 1 and ('trade' in text_lower or 'shipping' in text_lower or 'oil' in text_lower):
+        return True
+    if geopolitical_matches >= 1 and ('trade' in text_lower or 'export' in text_lower or 'import' in text_lower):
+        return True
+    if total_matches >= 2:
+        return True
+        
+    return False
 
 def convert_article_to_disruption(article: Dict[str, Any], search_term: str) -> Dict[str, Any]:
     """Convert news article to disruption format"""

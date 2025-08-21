@@ -11,23 +11,28 @@ export default function GlobalMap({
   onPortClick, 
   center = [20, 0], 
   zoom = 2, 
-  isLoading = false 
+  isLoading = false,
+  layerVisibility: externalLayerVisibility,
+  onLayerVisibilityChange
 }) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [legendCollapsed, setLegendCollapsed] = useState(false);
   
-  // Layer visibility controls for performance - FORCE TRUE FOR DEBUGGING
-  const [layerVisibility, setLayerVisibility] = useState({
+  // Layer visibility controls for performance - use external controls if provided
+  const [internalLayerVisibility, setInternalLayerVisibility] = useState({
     ports: true,
     disruptions: true, // Make sure disruptions are visible
     tariffs: false, // Start hidden for performance  
     routes: true
   });
   
-  // FORCE DEBUGGING - Ensure layers are visible
-  console.log('🔧 FORCED Layer Visibility:', layerVisibility);
+  // Use external layer visibility if provided, otherwise use internal state
+  const layerVisibility = externalLayerVisibility || internalLayerVisibility;
+  const setLayerVisibility = onLayerVisibilityChange || setInternalLayerVisibility;
+  
+
 
   console.log('🗺️ GlobalMap component rendered with:', { 
     portsLength: ports.length, 
@@ -174,14 +179,7 @@ export default function GlobalMap({
         }
       });
 
-      // FORCE TEST MARKER for debugging
-      try {
-        const testMarker = L.marker([40.7128, -74.0060]).addTo(map);
-        testMarker.bindPopup("🧪 TEST MARKER - NYC");
-        console.log('✅ TEST MARKER ADDED - If you see this, map is working');
-      } catch (error) {
-        console.error('❌ TEST MARKER FAILED:', error);
-      }
+
 
       // Add ports if visible
       console.log('🗺️ Attempting to add ports:', { 
@@ -290,8 +288,9 @@ export default function GlobalMap({
           const circle = L.circle([lat, lng], {
             color: color,
             fillColor: color,
-            fillOpacity: 0.6,
-            radius: 50000
+            fillOpacity: 0.7,
+            radius: 80000,  // Increased from 50000 to 80000 for larger, more visible icons
+            weight: 3       // Thicker border for better visibility
           }).addTo(map);
           console.log(`✅ Disruption ${index} added: ${disruption.title} at [${lat}, ${lng}] (${disruption.severity})`);
 

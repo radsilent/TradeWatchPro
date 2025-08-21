@@ -635,8 +635,8 @@ async def get_comprehensive_disruptions():
         
         logger.info("Fetching real-time maritime disruptions from external APIs...")
         
-        # Get disruptions from real-time sources
-        disruptions = await get_real_time_disruptions()
+        # Get disruptions from real-time sources (request 50 for comprehensive coverage)
+        disruptions = await get_real_time_disruptions(limit=50)
         
         if not disruptions:
             logger.warning("No disruptions found from real-time APIs")
@@ -650,8 +650,9 @@ async def get_comprehensive_disruptions():
         
         logger.info(f"Successfully fetched {len(disruptions)} disruptions from real-time APIs")
         
+        # Return more disruptions to meet user requirement of 50+
         return {
-            "disruptions": disruptions,
+            "disruptions": disruptions[:50],  # Show up to 50 disruptions
             "total": len(disruptions),
             "data_source": "Real-time maritime APIs",
             "last_updated": datetime.now().isoformat()
