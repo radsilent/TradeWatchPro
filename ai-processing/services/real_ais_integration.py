@@ -95,7 +95,8 @@ class RealAISIntegration:
                     (40.0, 10.0), (42.0, 8.0), (45.0, 6.0), (50.0, 4.0), (52.0, 4.5)
                 ],
                 "vessel_types": ["Container Ship", "Bulk Carrier"],
-                "traffic_density": 0.3
+                "traffic_density": 0.3,
+                "countries": ["China", "Japan", "South Korea", "Singapore", "Germany", "Netherlands"]
             },
             {
                 "name": "Trans-Pacific",
@@ -112,7 +113,8 @@ class RealAISIntegration:
                     (20.0, -120.0), (25.0, -118.0), (30.0, -118.5), (33.7, -118.2)
                 ],
                 "vessel_types": ["Container Ship", "Tanker"],
-                "traffic_density": 0.25
+                "traffic_density": 0.25,
+                "countries": ["Japan", "South Korea", "United States", "China"]
             },
             {
                 "name": "Atlantic Crossing",
@@ -127,7 +129,8 @@ class RealAISIntegration:
                     (32.0, -70.0), (35.0, -72.0), (38.0, -74.0), (40.7, -74.0)
                 ],
                 "vessel_types": ["Container Ship", "Cruise Ship"],
-                "traffic_density": 0.2
+                "traffic_density": 0.2,
+                "countries": ["Germany", "United Kingdom", "Netherlands", "United States", "France"]
             },
             {
                 "name": "Panama Canal Route",
@@ -141,7 +144,8 @@ class RealAISIntegration:
                     (0.0, -90.0), (-2.0, -92.0), (-5.0, -95.0)
                 ],
                 "vessel_types": ["Container Ship", "Bulk Carrier"],
-                "traffic_density": 0.15
+                "traffic_density": 0.15,
+                "countries": ["United States", "Panama", "Colombia", "Brazil", "Chile"]
             },
             {
                 "name": "North Atlantic",
@@ -153,7 +157,8 @@ class RealAISIntegration:
                     (38.0, -65.0), (40.0, -70.0), (41.0, -72.0), (42.0, -74.0)
                 ],
                 "vessel_types": ["Container Ship", "Tanker"],
-                "traffic_density": 0.2
+                "traffic_density": 0.2,
+                "countries": ["United Kingdom", "Canada", "United States", "Norway", "Iceland"]
             }
         ]
         
@@ -352,9 +357,14 @@ class RealAISIntegration:
             position = random.choice(route["positions"])
             lat, lng = position
             
-            # Add small realistic deviation (staying in ocean)
-            lat += random.uniform(-0.2, 0.2)
-            lng += random.uniform(-0.2, 0.2)
+            # Add small realistic deviation but ensure we stay in ocean
+            # Smaller deviation to prevent going over land
+            lat += random.uniform(-0.1, 0.1)
+            lng += random.uniform(-0.1, 0.1)
+            
+            # Simple bounds checking to ensure reasonable coordinates
+            lat = max(-80, min(80, lat))  # Keep within realistic maritime bounds
+            lng = max(-180, min(180, lng))
             
             # Select vessel type appropriate for route
             vessel_type_info = random.choice([vt for vt in vessel_types 
@@ -384,10 +394,23 @@ class RealAISIntegration:
             min_speed, max_speed = speed_ranges.get(vessel_type, (12, 18))
             speed = random.uniform(min_speed, max_speed)
             
-            # Select destination port
-            destination_port = random.choice(self.major_ports)
+            # Select origin and destination ports based on the route
+            route_countries = route.get("countries", [])
+            if route_countries:
+                route_ports = [port for port in self.major_ports if port["country"] in route_countries]
+                if len(route_ports) >= 2:
+                    origin_port = random.choice(route_ports)
+                    destination_port = random.choice([p for p in route_ports if p != origin_port])
+                else:
+                    # Fallback to any ports if not enough in route countries
+                    origin_port = random.choice(self.major_ports)
+                    destination_port = random.choice([p for p in self.major_ports if p != origin_port])
+            else:
+                # No countries defined for route, use logical port pairing
+                origin_port = random.choice(self.major_ports)
+                destination_port = random.choice([p for p in self.major_ports if p != origin_port])
             
-            # Generate vessel data
+            # Generate vessel data with logical origin/destination
             vessel = {
                 "id": f"real_vessel_{vessel_id:06d}",
                 "imo": f"{7000000 + vessel_id}",
@@ -401,9 +424,11 @@ class RealAISIntegration:
                 "speed": round(speed, 1),
                 "length": length,
                 "beam": beam,
+                "origin": origin_port["name"],
+                "origin_coords": origin_port["coords"],
                 "destination": destination_port["name"],
                 "destination_coords": destination_port["coords"],
-                "flag": destination_port["country"],
+                "flag": origin_port["country"],
                 "status": random.choice(["Underway", "At anchor", "Moored", "Engaged in fishing"]),
                 "timestamp": datetime.now().isoformat(),
                 "last_updated": (datetime.now() - timedelta(minutes=random.randint(1, 30))).isoformat(),

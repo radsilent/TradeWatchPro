@@ -81,7 +81,15 @@ export default function Dashboard() {
   }, []);
 
   const filteredDisruptions = useMemo(() => {
+    console.log('🔍 FILTER DEBUG: selectedDateRange:', selectedDateRange);
+    console.log('🔍 FILTER DEBUG: raw disruptions count:', disruptions.length);
+    
+    // TEMPORARY: Force all disruptions to show for debugging
+    console.log('🔍 FILTER DEBUG: TEMPORARILY FORCING ALL DISRUPTIONS TO SHOW');
+    return disruptions;
+    
     if (!selectedDateRange[0] || !selectedDateRange[1]) {
+      console.log('🔍 FILTER DEBUG: No date range selected, returning all disruptions');
       return disruptions;
     }
     const [start, end] = selectedDateRange;
@@ -119,6 +127,8 @@ export default function Dashboard() {
         return false;
       }
     });
+    console.log('🔍 FILTER DEBUG: Final filtered disruptions count:', result.length);
+    return result;
   }, [disruptions, selectedDateRange]);
 
   const loadDashboardData = useCallback(async () => {

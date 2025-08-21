@@ -256,8 +256,11 @@ export default function GlobalMap({
       });
       
       if (layerVisibility.disruptions && disruptions.length > 0) {
-        console.log('🚨 Adding disruptions to map...');
+        console.log('🚨 DEBUGGING: Adding disruptions to map...');
+        console.log('🚨 DEBUGGING: Full disruptions array:', disruptions);
+        console.log('🚨 DEBUGGING: About to loop through', disruptions.length, 'disruptions');
         disruptions.forEach((disruption, index) => {
+          console.log(`🚨 DEBUGGING: Processing disruption ${index}:`, disruption.title, disruption.coordinates);
           // Handle both array [lat, lng] and object {lat, lng} coordinate formats
           let lat, lng;
           if (disruption.coordinates) {
@@ -283,21 +286,52 @@ export default function GlobalMap({
             'Low': '#22c55e'
           };
 
-          const color = severityColors[disruption.severity] || '#64748b';
+          // Enhanced styling for current events vs future predictions
+          const isPrediction = disruption.event_type === 'prediction' || disruption.is_prediction;
+          const baseSeverityColor = severityColors[disruption.severity] || '#64748b';
+          const color = isPrediction ? '#9333EA' : baseSeverityColor; // Purple for predictions
+          const fillOpacity = isPrediction ? 0.5 : 0.7; // More transparent for predictions
+          const dashArray = isPrediction ? '10, 5' : null; // Dashed border for predictions
+          const predictionText = isPrediction ? ' [FORECAST]' : '';
 
           const circle = L.circle([lat, lng], {
             color: color,
             fillColor: color,
-            fillOpacity: 0.7,
+            fillOpacity: fillOpacity,
             radius: 80000,  // Increased from 50000 to 80000 for larger, more visible icons
-            weight: 3       // Thicker border for better visibility
+            weight: 3,      // Thicker border for better visibility
+            dashArray: dashArray  // Dashed border for predictions
           }).addTo(map);
-          console.log(`✅ Disruption ${index} added: ${disruption.title} at [${lat}, ${lng}] (${disruption.severity})`);
+          
+          const eventType = isPrediction ? 'PREDICTION' : 'CURRENT EVENT';
+          console.log(`🟢 ${eventType} MARKER ADDED: ${disruption.title}${predictionText} at [${lat}, ${lng}] (${disruption.severity}) with color ${color}`);
 
           const disruptionContent = `
             <div class="disruption-popup p-4 max-w-sm">
-              <h3 class="font-bold text-lg text-slate-900 mb-2">${disruption.title}</h3>
+              <h3 class="font-bold text-lg text-slate-900 mb-2">${disruption.title}${predictionText}</h3>
               <div class="space-y-2 text-sm">
+                ${isPrediction ? `
+                <div class="bg-purple-100 p-2 rounded-lg mb-2">
+                  <div class="flex justify-between">
+                    <span class="text-purple-600 font-medium">🔮 Predictive Event</span>
+                  </div>
+                  ${disruption.prediction_type ? `
+                  <div class="flex justify-between mt-1">
+                    <span class="text-purple-600">Type:</span>
+                    <span class="text-purple-800 font-medium">${disruption.prediction_type}</span>
+                  </div>` : ''}
+                  ${disruption.forecast_horizon ? `
+                  <div class="flex justify-between mt-1">
+                    <span class="text-purple-600">Timeline:</span>
+                    <span class="text-purple-800">${disruption.forecast_horizon}</span>
+                  </div>` : ''}
+                  ${disruption.risk_level ? `
+                  <div class="flex justify-between mt-1">
+                    <span class="text-purple-600">Risk Level:</span>
+                    <span class="text-purple-800 font-medium">${disruption.risk_level}</span>
+                  </div>` : ''}
+                </div>
+                ` : ''}
                 <div class="flex justify-between">
                   <span class="text-slate-600">Severity:</span>
                   <span class="font-medium" style="color: ${color}">${disruption.severity}</span>
@@ -310,6 +344,11 @@ export default function GlobalMap({
                   <span class="text-slate-600">Status:</span>
                   <span class="font-medium">${disruption.status}</span>
                 </div>
+                ${disruption.confidence ? `
+                <div class="flex justify-between">
+                  <span class="text-slate-600">Confidence:</span>
+                  <span class="font-medium">${Math.round(disruption.confidence)}%</span>
+                </div>` : ''}
                 ${disruption.description ? `<p class="text-slate-700 mt-2">${disruption.description}</p>` : ''}
               </div>
             </div>
