@@ -1,0 +1,684 @@
+classDiagram
+    %% ===============================
+    %% REACT FRONTEND APPLICATION
+    %% ===============================
+    class App {
+        +render() JSX
+        +handleRouting() void
+        +initializeApp() void
+    }
+    
+    class Layout {
+        +isMobile boolean
+        +sidebarOpen boolean
+        +navigationItems NavigationItem[]
+        +render() JSX
+        +toggleSidebar() void
+        +handleMobileDetection() void
+    }
+    
+    %% ===============================
+    %% REACT PAGES LAYER
+    %% ===============================
+    class Dashboard {
+        +ports Port[]
+        +disruptions Disruption[]
+        +tariffs Tariff[]
+        +vessels Vessel[]
+        +isLoading boolean
+        +isMobile boolean
+        +loadDashboardData() void
+        +handleDateChange() void
+        +render() JSX
+    }
+    
+    class VesselTracking {
+        +vessels Vessel[]
+        +selectedVessel Vessel
+        +predictions VesselPrediction[]
+        +getVesselData() void
+        +trackVessel() void
+        +render() JSX
+    }
+    
+    class TariffTracking {
+        +tariffs Tariff[]
+        +filteredTariffs Tariff[]
+        +selectedCountries string[]
+        +loadTariffs() void
+        +filterByCountry() void
+        +render() JSX
+    }
+    
+    class Analytics {
+        +performanceData AnalyticsData
+        +tradeMetrics TradeMetrics
+        +chartData ChartData[]
+        +generateAnalytics() void
+        +exportData() void
+        +render() JSX
+    }
+    
+    class LivePortView {
+        +ports Port[]
+        +selectedPort Port
+        +satelliteView SatelliteData
+        +isComingSoon boolean
+        +selectPort() void
+        +loadPortData() void
+        +render() JSX
+    }
+    
+    class MobileAppDownload {
+        +appStoreLinks AppStoreLinks
+        +features AppFeature[]
+        +downloadStats DownloadStats
+        +render() JSX
+    }
+    
+    %% ===============================
+    %% DASHBOARD COMPONENTS
+    %% ===============================
+    class GlobalMap {
+        +mapInstance LeafletMap
+        +ports Port[]
+        +disruptions Disruption[]
+        +tariffs Tariff[]
+        +vessels Vessel[]
+        +tradeRoutes TradeRoute[]
+        +isMobile boolean
+        +legendVisible boolean
+        +initializeMap() void
+        +plotPorts() void
+        +plotDisruptions() void
+        +plotTariffs() void
+        +plotVessels() void
+        +plotTradeRoutes() void
+        +toggleLegend() void
+        +render() JSX
+    }
+    
+    class DateSlicer {
+        +startDate Date
+        +endDate Date
+        +range number[]
+        +isMobile boolean
+        +onDateChange() void
+        +formatDateRange() string
+        +render() JSX
+    }
+    
+    class ActiveAlerts {
+        +alerts Alert[]
+        +severity string
+        +filterBySeverity() Alert[]
+        +markAsRead() void
+        +render() JSX
+    }
+    
+    class MetricsPanel {
+        +metrics Metric[]
+        +timeRange string
+        +calculateMetrics() void
+        +updateMetrics() void
+        +render() JSX
+    }
+    
+    class DisruptionTimeline {
+        +disruptions Disruption[]
+        +timelineData TimelineData[]
+        +generateTimeline() void
+        +filterByDate() void
+        +render() JSX
+    }
+    
+    %% ===============================
+    %% TENSORFLOW AI PROCESSING SYSTEM
+    %% ===============================
+    class TensorFlowProcessor {
+        +fastApiApp FastAPI
+        +modelManager ModelManager
+        +databaseManager DatabaseManager
+        +dataPipeline DataPipeline
+        +isInitialized boolean
+        +initialize() void
+        +shutdown() void
+        +healthCheck() HealthStatus
+        +processRequest() APIResponse
+    }
+    
+    class ModelManager {
+        +models Dict~string,AIModel~
+        +modelMetadata Dict~string,ModelMetadata~
+        +modelBasePath string
+        +isInitialized boolean
+        +initialize() void
+        +loadModel() void
+        +predictVesselMovements() VesselPrediction[]
+        +detectDisruptions() DisruptionPrediction[]
+        +assessEconomicImpact() EconomicImpact
+        +trainModels() TrainingMetrics
+        +getPerformanceMetrics() ModelMetrics
+    }
+    
+    class VesselMovementPredictor {
+        +model TensorFlowModel
+        +scaler DataScaler
+        +sequenceLength number
+        +predictionHorizon number
+        +featureDim number
+        +isLoaded boolean
+        +buildModel() KerasModel
+        +preprocessData() ProcessedData
+        +predict() VesselPrediction
+        +train() TrainingResults
+        +loadModel() void
+        +saveModel() void
+        +positionLoss() TensorFlowLoss
+    }
+    
+    class DisruptionDetector {
+        +model TensorFlowModel
+        +tokenizer TextTokenizer
+        +textEncoder TransformerModel
+        +disruptionCategories string[]
+        +severityLevels string[]
+        +newsEmbeddingDim number
+        +vesselFeatureDim number
+        +economicFeatureDim number
+        +buildModel() KerasModel
+        +preprocessNewsData() NewsFeatures
+        +preprocessVesselData() VesselFeatures
+        +preprocessEconomicData() EconomicFeatures
+        +detectDisruptions() DisruptionPrediction[]
+        +generateDescription() string
+        +generateRecommendations() string[]
+        +train() TrainingResults
+    }
+    
+    class DataPipeline {
+        +databaseManager DatabaseManager
+        +modelManager ModelManager
+        +isRunning boolean
+        +processingStats ProcessingStats
+        +initialize() void
+        +ingestData() IngestionResult
+        +processVesselUpdates() VesselResults
+        +processPortUpdates() PortResults
+        +processNewsUpdates() NewsResults
+        +processWeatherUpdates() WeatherResults
+        +processRealTimeData() void
+        +detectVesselAnomalies() VesselAnomaly[]
+        +updatePerformanceMetrics() void
+    }
+    
+    %% ===============================
+    %% POSTGRESQL DATABASE LAYER
+    %% ===============================
+    class DatabaseManager {
+        +databaseUrl string
+        +poolSize number
+        +pool ConnectionPool
+        +isInitialized boolean
+        +initialize() void
+        +getConnection() DatabaseConnection
+        +close() void
+        +isConnected() boolean
+        +insertVesselPosition() string
+        +getVesselHistory() VesselPosition[]
+        +getVesselsInRegion() Vessel[]
+        +insertPortPerformance() string
+        +getPortsByImportance() Port[]
+        +insertDisruption() string
+        +getActiveDisruptions() Disruption[]
+        +insertTariff() string
+        +getTariffsByCountry() Tariff[]
+        +insertModelMetadata() string
+        +insertPrediction() string
+        +getModelPerformance() ModelMetrics
+        +executeQuery() QueryResult[]
+        +bulkInsert() number
+        +cleanupOldData() CleanupResult
+        +getDatabaseStats() DatabaseStats
+    }
+    
+    %% ===============================
+    %% POSTGRESQL DATABASE SCHEMA
+    %% ===============================
+    class MaritimeVessels {
+        +vessel_id UUID
+        +imo_number string
+        +vessel_name string
+        +vessel_type string
+        +flag_country string
+        +gross_tonnage number
+        +coordinates Geography
+        +created_at timestamp
+        +updated_at timestamp
+    }
+    
+    class MaritimeVesselPositions {
+        +position_id UUID
+        +vessel_id UUID
+        +coordinates Geography
+        +latitude decimal
+        +longitude decimal
+        +speed_knots decimal
+        +heading_degrees number
+        +timestamp timestamp
+        +data_source string
+        +created_at timestamp
+    }
+    
+    class MaritimePorts {
+        +port_id UUID
+        +port_code string
+        +port_name string
+        +country_code string
+        +coordinates Geography
+        +strategic_importance number
+        +capacity_teu number
+        +annual_throughput_teu bigint
+        +created_at timestamp
+        +updated_at timestamp
+    }
+    
+    class MaritimePortPerformance {
+        +performance_id UUID
+        +port_id UUID
+        +date Date
+        +vessel_arrivals number
+        +vessel_departures number
+        +cargo_throughput_tons bigint
+        +congestion_level decimal
+        +berth_occupancy_rate decimal
+        +created_at timestamp
+    }
+    
+    class MaritimeTradeDisruptions {
+        +disruption_id UUID
+        +event_type string
+        +title string
+        +description text
+        +severity_level number
+        +affected_region Geography
+        +start_date timestamp
+        +end_date timestamp
+        +probability decimal
+        +confidence_score decimal
+        +economic_impact_usd bigint
+        +ai_generated boolean
+        +source_type string
+        +created_at timestamp
+    }
+    
+    class MaritimeTariffs {
+        +tariff_id UUID
+        +commodity_code string
+        +commodity_description text
+        +imposing_country string
+        +target_country string
+        +tariff_rate decimal
+        +effective_date Date
+        +trade_value_usd bigint
+        +created_at timestamp
+    }
+    
+    class MaritimeTradeRoutes {
+        +route_id UUID
+        +route_name string
+        +origin_port_id UUID
+        +destination_port_id UUID
+        +route_geometry Geography
+        +distance_nautical_miles decimal
+        +typical_transit_time_hours number
+        +risk_level number
+        +economic_importance number
+        +created_at timestamp
+    }
+    
+    class AIModelsRegistry {
+        +model_id UUID
+        +model_name string
+        +model_type string
+        +model_version string
+        +framework string
+        +model_path string
+        +hyperparameters JSONB
+        +performance_metrics JSONB
+        +validation_score decimal
+        +is_active boolean
+        +created_at timestamp
+    }
+    
+    class AIModelsPredictions {
+        +prediction_id UUID
+        +model_id UUID
+        +prediction_type string
+        +input_features JSONB
+        +output_prediction JSONB
+        +confidence_score decimal
+        +vessel_id UUID
+        +disruption_id UUID
+        +prediction_timestamp timestamp
+        +actual_outcome JSONB
+        +accuracy_score decimal
+        +created_at timestamp
+    }
+    
+    class AnalyticsPerformanceMetrics {
+        +metric_id UUID
+        +metric_name string
+        +metric_category string
+        +metric_value decimal
+        +aggregation_period string
+        +aggregation_timestamp timestamp
+        +dimensions JSONB
+        +created_at timestamp
+    }
+    
+    %% ===============================
+    %% DATA MODELS AND ENTITIES
+    %% ===============================
+    class Port {
+        +id string
+        +code string
+        +name string
+        +country string
+        +coordinates Coordinates
+        +strategic_importance number
+        +capacity number
+        +throughput number
+        +performance PortPerformance
+    }
+    
+    class Vessel {
+        +id string
+        +imo string
+        +name string
+        +type string
+        +position VesselPosition
+        +speed number
+        +heading number
+        +destination string
+        +eta Date
+        +status string
+    }
+    
+    class Disruption {
+        +id string
+        +type string
+        +title string
+        +description string
+        +severity number
+        +location Coordinates
+        +startDate Date
+        +endDate Date
+        +probability number
+        +confidence number
+        +impact EconomicImpact
+        +source string
+        +aiGenerated boolean
+    }
+    
+    class Tariff {
+        +id string
+        +commodityCode string
+        +description string
+        +imposingCountry string
+        +targetCountry string
+        +rate number
+        +type string
+        +effectiveDate Date
+        +tradeValue number
+        +coordinates Coordinates
+    }
+    
+    class VesselPrediction {
+        +vesselId string
+        +predictedPositions Position[]
+        +estimatedArrivalHours number
+        +confidenceScore number
+        +riskFactors RiskFactors
+        +predictionTimestamp Date
+        +predictionHorizonHours number
+    }
+    
+    class DisruptionPrediction {
+        +disruptionId string
+        +eventType string
+        +severityLevel string
+        +probability number
+        +confidenceScore number
+        +predictedImpactHours number
+        +predictedDurationHours number
+        +affectedRegions Region[]
+        +description string
+        +recommendedActions string[]
+        +aiGenerated boolean
+    }
+    
+    %% ===============================
+    %% API AND INTEGRATION LAYER
+    %% ===============================
+    class APIAggregator {
+        +dataSources DataSource[]
+        +cache CacheManager
+        +rateLimiter RateLimiter
+        +aggregateData() AggregatedData
+        +validateData() ValidationResult
+        +cacheData() void
+        +fetchFromSource() SourceData
+        +handleFailover() FailoverResult
+    }
+    
+    class RealTimeIntegration {
+        +aisDataSource AISSource
+        +newsAPISource NewsSource
+        +weatherAPISource WeatherSource
+        +portAPISource PortSource
+        +fetchRealTimeData() RealTimeData
+        +processAISData() AISData[]
+        +processNewsData() NewsData[]
+        +processWeatherData() WeatherData[]
+        +scheduleUpdates() void
+    }
+    
+    class TariffIntegration {
+        +tariffAPIs TariffAPI[]
+        +comprehensiveTariffData TariffData[]
+        +fetchLiveTariffs() Tariff[]
+        +processTariffData() ProcessedTariff[]
+        +updateTariffCache() void
+        +validateTariffData() boolean
+    }
+    
+    class NewsIntegration {
+        +newsAPIs NewsAPI[]
+        +searchTerms string[]
+        +disruptionKeywords string[]
+        +fetchMaritimeNews() NewsArticle[]
+        +analyzeNewsRelevance() RelevanceScore
+        +extractDisruptionSignals() DisruptionSignal[]
+        +processNewsData() ProcessedNews[]
+    }
+    
+    class MaritimeAPIs {
+        +aisAPI AISAPI
+        +portAuthorityAPIs PortAPI[]
+        +vesselsAPI VesselAPI
+        +weatherAPI WeatherAPI
+        +fetchVesselData() VesselData[]
+        +fetchPortData() PortData[]
+        +fetchWeatherData() WeatherData[]
+        +handleAPIErrors() ErrorResponse
+    }
+    
+    %% ===============================
+    %% DOCKER CONTAINER SERVICES
+    %% ===============================
+    class DockerCompose {
+        +postgresContainer PostgreSQLContainer
+        +redisContainer RedisContainer
+        +tensorflowContainer TensorFlowContainer
+        +celeryWorker CeleryWorker
+        +celeryBeat CeleryBeat
+        +flowerMonitoring FlowerMonitoring
+        +tensorflowServing TensorFlowServing
+        +prometheusMonitoring PrometheusContainer
+        +grafanaVisualization GrafanaContainer
+        +initializeServices() void
+        +healthCheckServices() ServiceStatus[]
+        +scaleServices() void
+    }
+    
+    class PostgreSQLContainer {
+        +postgisExtension PostGISExtension
+        +schemas DatabaseSchema[]
+        +connectionPool ConnectionPool
+        +backupSchedule BackupConfig
+        +initializeDatabase() void
+        +runMigrations() void
+        +createIndexes() void
+    }
+    
+    class TensorFlowContainer {
+        +gpuSupport GPUConfig
+        +modelVolumes ModelVolumes
+        +tensorboardLogs TensorBoardLogs
+        +environmentConfig EnvironmentConfig
+        +initializeModels() void
+        +servePredictions() void
+        +monitorPerformance() void
+    }
+    
+    class CeleryWorker {
+        +taskQueue TaskQueue
+        +concurrency number
+        +taskTypes TaskType[]
+        +processTasks() void
+        +handleFailures() void
+        +monitorHealth() void
+    }
+    
+    %% ===============================
+    %% UTILITY AND HELPER CLASSES
+    %% ===============================
+    class Utils {
+        +formatDate() string
+        +calculateDistance() number
+        +validateCoordinates() boolean
+        +parseAPIResponse() ParsedData
+        +handleErrors() ErrorResponse
+    }
+    
+    class ConfigManager {
+        +databaseUrl string
+        +redisUrl string
+        +apiKeys APIKeys
+        +environment string
+        +modelPaths ModelPaths
+        +loadConfig() Config
+        +validateConfig() boolean
+        +configureTensorFlow() void
+    }
+    
+    class LoggingConfig {
+        +logLevel string
+        +structuredLogging boolean
+        +logOutputs LogOutput[]
+        +setupLogging() void
+        +createLogger() Logger
+    }
+    
+    %% ===============================
+    %% RELATIONSHIPS
+    %% ===============================
+    
+    %% React Frontend Relationships
+    App --> Layout : contains
+    Layout --> Dashboard : routes to
+    Layout --> VesselTracking : routes to
+    Layout --> TariffTracking : routes to
+    Layout --> Analytics : routes to
+    Layout --> LivePortView : routes to
+    Layout --> MobileAppDownload : routes to
+    
+    Dashboard --> GlobalMap : contains
+    Dashboard --> DateSlicer : contains
+    Dashboard --> ActiveAlerts : contains
+    Dashboard --> MetricsPanel : contains
+    Dashboard --> DisruptionTimeline : contains
+    
+    %% AI Processing System Relationships
+    TensorFlowProcessor --> ModelManager : uses
+    TensorFlowProcessor --> DatabaseManager : uses
+    TensorFlowProcessor --> DataPipeline : uses
+    
+    ModelManager --> VesselMovementPredictor : manages
+    ModelManager --> DisruptionDetector : manages
+    
+    DataPipeline --> DatabaseManager : uses
+    DataPipeline --> ModelManager : uses
+    
+    %% Database Relationships
+    DatabaseManager --> MaritimeVessels : manages
+    DatabaseManager --> MaritimeVesselPositions : manages
+    DatabaseManager --> MaritimePorts : manages
+    DatabaseManager --> MaritimePortPerformance : manages
+    DatabaseManager --> MaritimeTradeDisruptions : manages
+    DatabaseManager --> MaritimeTariffs : manages
+    DatabaseManager --> MaritimeTradeRoutes : manages
+    DatabaseManager --> AIModelsRegistry : manages
+    DatabaseManager --> AIModelsPredictions : manages
+    DatabaseManager --> AnalyticsPerformanceMetrics : manages
+    
+    %% Database Foreign Key Relationships
+    MaritimeVesselPositions --> MaritimeVessels : belongs to
+    MaritimePortPerformance --> MaritimePorts : belongs to
+    MaritimeTradeRoutes --> MaritimePorts : origin/destination
+    AIModelsPredictions --> AIModelsRegistry : belongs to
+    
+    %% Data Model Relationships
+    GlobalMap --> Port : displays
+    GlobalMap --> Vessel : displays
+    GlobalMap --> Disruption : displays
+    GlobalMap --> Tariff : displays
+    
+    VesselTracking --> Vessel : tracks
+    VesselTracking --> VesselPrediction : shows
+    
+    TariffTracking --> Tariff : manages
+    
+    Analytics --> AnalyticsPerformanceMetrics : analyzes
+    
+    %% API Integration Relationships
+    Dashboard --> APIAggregator : fetches data
+    VesselTracking --> RealTimeIntegration : gets updates
+    TariffTracking --> TariffIntegration : gets tariffs
+    
+    APIAggregator --> RealTimeIntegration : uses
+    APIAggregator --> TariffIntegration : uses
+    APIAggregator --> NewsIntegration : uses
+    APIAggregator --> MaritimeAPIs : uses
+    
+    %% AI Model Data Flow
+    VesselMovementPredictor --> VesselPrediction : produces
+    DisruptionDetector --> DisruptionPrediction : produces
+    
+    DataPipeline --> VesselMovementPredictor : feeds data
+    DataPipeline --> DisruptionDetector : feeds data
+    
+    %% Docker Container Relationships
+    DockerCompose --> PostgreSQLContainer : orchestrates
+    DockerCompose --> TensorFlowContainer : orchestrates
+    DockerCompose --> CeleryWorker : orchestrates
+    
+    TensorFlowContainer --> TensorFlowProcessor : runs
+    PostgreSQLContainer --> DatabaseManager : provides database
+    
+    %% Utility Relationships
+    TensorFlowProcessor --> ConfigManager : uses
+    TensorFlowProcessor --> LoggingConfig : uses
+    DatabaseManager --> Utils : uses
+    DataPipeline --> Utils : uses
