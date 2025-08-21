@@ -390,9 +390,8 @@ npm install
 ## 📞 Support & Contact
 
 ### VectorStream Systems
-- **Website**: [vectorstream.systems](https://vectorstream.systems)
-- **Email**: support@vectorstream.systems
-- **Documentation**: [docs.tradewatch.app](https://docs.tradewatch.app)
+- **Website**: [vectorstream.systems](https://vectorstreamsystems.com)
+- **Email**: streamline@vectorstreamsystems.com
 - **Issue Tracking**: GitHub Issues
 
 ## 📄 License
