@@ -190,7 +190,7 @@ export default function Layout({ children, currentPageName }) {
         <Sidebar className={`border-r border-slate-700/50 bg-slate-900/95 backdrop-blur-sm transition-transform duration-300 ${
           isMobile 
             ? `fixed left-0 top-16 bottom-0 z-[9999] w-64 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
-            : 'relative'
+            : 'fixed left-0 top-0 bottom-0 w-64 z-[1000]'
         }`}>
           <SidebarHeader className="border-b border-slate-700/50 p-6">
             <div className="flex flex-col gap-4">
@@ -289,7 +289,7 @@ export default function Layout({ children, currentPageName }) {
           </SidebarContent>
         </Sidebar>
 
-        <main className="flex-1 flex flex-col min-h-screen">
+        <main className={`flex-1 flex flex-col min-h-screen ${isMobile ? '' : 'ml-64'}`}>
           <div className={`flex-1 bg-slate-900 ${isMobile ? 'px-3 py-2 pb-20' : 'px-6 py-4'}`}>
             {children}
           </div>
