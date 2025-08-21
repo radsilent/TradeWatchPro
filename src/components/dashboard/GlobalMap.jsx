@@ -168,8 +168,8 @@ export default function GlobalMap({
         };
         
         return L.divIcon({
-          html: `<div style="background-color: ${colors[status]}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-          iconSize: [12, 12],
+          html: `<div style="background-color: ${colors[status]}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); cursor: pointer;"></div>`,
+          iconSize: [16, 16],
           className: 'custom-marker'
         });
       };
@@ -317,8 +317,21 @@ export default function GlobalMap({
           </div>
         `;
 
-        marker.bindPopup(popupContent);
-        marker.on('click', () => onPortClick && onPortClick(port));
+        // Bind popup with better options
+        marker.bindPopup(popupContent, {
+          maxWidth: 400,
+          minWidth: 300,
+          closeButton: true,
+          autoClose: false,
+          closeOnClick: false,
+          className: 'port-popup'
+        });
+        
+        // Ensure popup opens on click
+        marker.on('click', function(e) {
+          this.openPopup();
+          if (onPortClick) onPortClick(port);
+        });
       });
       
       console.log(`Port markers summary: ${portsAdded} added, ${portsSkipped} skipped out of ${ports.length} total ports`);
@@ -616,7 +629,51 @@ export default function GlobalMap({
       });
     };
 
-    return <div ref={mapRef} className="w-full h-full rounded-lg" />;
+    return (
+      <div className="w-full h-full rounded-lg relative">
+        <div ref={mapRef} className="w-full h-full rounded-lg" />
+        <style jsx global>{`
+          .port-popup .leaflet-popup-content-wrapper {
+            background: white;
+            color: #1f2937;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            border: 1px solid #e5e7eb;
+          }
+          
+          .port-popup .leaflet-popup-content {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+          }
+          
+          .port-popup .leaflet-popup-tip {
+            background: white;
+            border: 1px solid #e5e7eb;
+          }
+          
+          .custom-marker {
+            background: transparent !important;
+            border: none !important;
+            transition: transform 0.2s ease;
+          }
+          
+          .custom-marker:hover {
+            transform: scale(1.2);
+            z-index: 1000;
+          }
+          
+          .leaflet-popup-close-button {
+            color: #6b7280 !important;
+            font-size: 18px !important;
+            font-weight: bold !important;
+          }
+          
+          .leaflet-popup-close-button:hover {
+            color: #374151 !important;
+          }
+        `}</style>
+      </div>
+    );
   };
 
   return (
