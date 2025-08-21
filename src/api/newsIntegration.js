@@ -439,9 +439,7 @@ export async function fetchRealTimeMaritimeNews() {
   
   console.log(`Total maritime disruptions found: ${sortedDisruptions.length}`);
   
-      // Always add current known disruptions to ensure we have active ones
-    const knownDisruptions = getCurrentKnownDisruptions();
-    sortedDisruptions.push(...knownDisruptions);
+      // NO HARDCODED DISRUPTIONS - use only real-time RSS data
     
     // Remove duplicates and ensure we have plenty of active disruptions
     const uniqueDisruptions = sortedDisruptions.filter((disruption, index, arr) => 
@@ -480,8 +478,8 @@ export async function fetchRealTimeMaritimeNews() {
   return finalDisruptions;
 }
 
-// Expanded set of current known disruptions to ensure we have at least 50
-function getCurrentKnownDisruptions() {
+// NO HARDCODED DISRUPTIONS - removed to ensure only real-time data is used
+function getCurrentKnownDisruptions_REMOVED() {
   const now = new Date();
   const today = new Date();
   const yesterday = new Date(now.getTime() - (1 * 24 * 60 * 60 * 1000));

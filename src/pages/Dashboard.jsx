@@ -55,10 +55,20 @@ export default function Dashboard() {
   const [dateConfig, setDateConfig] = useState({ min: null, max: null });
   const [selectedDateRange, setSelectedDateRange] = useState([null, null]);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Layer visibility controls for performance optimization
+  const [layerVisibility, setLayerVisibility] = useState({
+    ports: true,
+    disruptions: true, 
+    tariffs: false, // Start with tariffs disabled for performance
+    routes: true
+  });
 
   useEffect(() => {
     loadDashboardData();
-    
+  }, [layerVisibility]); // Reload data when layer visibility changes
+  
+  useEffect(() => {
     // Mobile detection
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -122,12 +132,29 @@ export default function Dashboard() {
       // Reduce data on mobile for better performance
       const dataLimits = isMobile ? { ports: 50, disruptions: 20, tariffs: 100 } : { ports: 200, disruptions: 100, tariffs: 500 };
       
-      const [portsData, disruptionsData, tariffsData] = await Promise.all([
-        Port.list('-strategic_importance', dataLimits.ports), // Reduced on mobile
-        Disruption.list('-created_date', dataLimits.disruptions), // Reduced on mobile
-        Tariff.list('-trade_value', dataLimits.tariffs) // Reduced on mobile
-        // Vessels removed from dashboard - only loaded on vessel tracking page
-      ]);
+      // Only load data for visible layers to improve performance
+      const loadPromises = [];
+      
+      if (layerVisibility.ports) {
+        loadPromises.push(Port.list('-strategic_importance', dataLimits.ports));
+      } else {
+        loadPromises.push(Promise.resolve([]));
+      }
+      
+      if (layerVisibility.disruptions) {
+        // Use the same real-time RSS API that the map uses
+        loadPromises.push(fetch('http://localhost:8001/api/maritime-disruptions').then(res => res.json()).then(data => data.disruptions || []));
+      } else {
+        loadPromises.push(Promise.resolve([]));
+      }
+      
+      if (layerVisibility.tariffs) {
+        loadPromises.push(Tariff.list('-trade_value', dataLimits.tariffs));
+      } else {
+        loadPromises.push(Promise.resolve([]));
+      }
+      
+      const [portsData, disruptionsData, tariffsData] = await Promise.all(loadPromises);
       
       console.log('Ports loaded:', portsData.length);
       console.log('Sample port data:', portsData.slice(0, 3));
@@ -322,6 +349,8 @@ export default function Dashboard() {
                 center={mapCenter}
                 zoom={mapZoom}
                 isLoading={isLoading}
+                layerVisibility={layerVisibility}
+                onLayerVisibilityChange={setLayerVisibility}
               />
             </div>
           ) : (

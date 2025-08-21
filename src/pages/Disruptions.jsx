@@ -60,8 +60,10 @@ export default function DisruptionsPage() {
   const loadDisruptions = async () => {
     setIsLoading(true);
     try {
-      const data = await Disruption.list('-created_date', 100);
-      setDisruptions(data);
+      // Use the same real-time RSS API that the map uses
+      const response = await fetch('http://localhost:8001/api/maritime-disruptions');
+      const data = await response.json();
+      setDisruptions(data.disruptions || []);
     } catch (error) {
       console.error("Error loading disruptions:", error);
     }

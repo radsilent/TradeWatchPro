@@ -221,6 +221,25 @@ async def fetch_rss_disruptions(session: aiohttp.ClientSession, source: str, rss
                         logger.info(f"Processing article: '{title}' | Desc: '{description[:100]}...'")
                         if is_maritime_relevant(combined_text):
                             logger.info(f"Found maritime relevant article: {title}")
+                            # Parse publication date properly
+                            try:
+                                if pub_date:
+                                    # Try to parse various date formats
+                                    from dateutil import parser
+                                    parsed_date = parser.parse(pub_date)
+                                else:
+                                    parsed_date = datetime.now()
+                            except:
+                                parsed_date = datetime.now()
+                            
+                            # Calculate end date based on disruption type and severity
+                            duration_days = calculate_disruption_duration(combined_text, infer_severity(combined_text))
+                            end_date = parsed_date + timedelta(days=duration_days)
+                            
+                            # Extract coordinates with debugging
+                            coordinates = infer_coordinates(combined_text)
+                            logger.info(f"Extracted coordinates for '{title}': {coordinates}")
+                            
                             # Create disruption from RSS item
                             disruption = {
                                 'id': f"rss_{source}_{hash(title)%100000}",
@@ -228,16 +247,24 @@ async def fetch_rss_disruptions(session: aiohttp.ClientSession, source: str, rss
                                 'description': description[:300] if description else title,
                                 'severity': infer_severity(combined_text),
                                 'status': 'active',
-                                'coordinates': infer_coordinates(combined_text),
+                                'type': infer_category(combined_text),
+                                'coordinates': coordinates,
                                 'affected_regions': infer_regions(combined_text),
+                                'start_date': parsed_date.isoformat(),
+                                'end_date': end_date.isoformat(),
+                                'created_date': parsed_date.isoformat(),
+                                'source_url': link,
+                                'source_reliability_score': calculate_confidence(combined_text, 1),
+                                'source_validation_status': 'verified',
                                 'sources': [{
                                     'name': source.replace('_', ' ').title(),
                                     'url': link,
-                                    'reliability': 'medium',
-                                    'published_date': pub_date
+                                    'reliability': 'high',
+                                    'published_date': parsed_date.isoformat()
                                 }],
-                                'confidence': calculate_confidence(combined_text, 1),  # Assume 1 day old
-                                'last_updated': datetime.now().isoformat()
+                                'confidence': calculate_confidence(combined_text, 1),
+                                'last_updated': datetime.now().isoformat(),
+                                'category': infer_category(combined_text)
                             }
                             disruptions.append(disruption)
                             
@@ -378,28 +405,184 @@ def infer_coordinates(text: str) -> List[float]:
     """Infer coordinates from article text based on location mentions"""
     text_lower = text.lower()
     
+    # Expanded location database for better coordinate mapping
     location_coords = {
+        # Major waterways and straits
         'suez': [30.0, 32.5],
-        'panama': [9.0, -79.5],
-        'singapore': [1.29, 103.85],
+        'panama': [9.0, -79.5], 
         'strait of hormuz': [26.5, 56.0],
+        'strait of malacca': [2.2, 102.2],
+        'english channel': [50.2, 1.6],
+        'bosphorus': [41.1, 29.1],
+        'gibraltar': [36.1, -5.3],
+        'dardanelles': [40.2, 26.4],
         'red sea': [20.0, 38.0],
-        'los angeles': [33.74, -118.25],
-        'hamburg': [53.55, 9.99],
-        'rotterdam': [51.92, 4.48],
-        'shanghai': [31.23, 121.47],
         'gulf of aden': [14.0, 48.0],
+        'persian gulf': [26.0, 52.0],
         'south china sea': [16.0, 112.0],
-        'malacca': [2.2, 102.2],
         'mediterranean': [35.0, 18.0],
-        'baltic sea': [58.0, 20.0]
+        'baltic sea': [58.0, 20.0],
+        'north sea': [56.0, 3.0],
+        'black sea': [43.0, 35.0],
+        'caribbean': [15.0, -75.0],
+        
+        # Major ports
+        'singapore': [1.29, 103.85],
+        'shanghai': [31.23, 121.47],
+        'rotterdam': [51.92, 4.48],
+        'hamburg': [53.55, 9.99],
+        'los angeles': [33.74, -118.25],
+        'long beach': [33.77, -118.19],
+        'hong kong': [22.32, 114.17],
+        'dubai': [25.25, 55.27],
+        'antwerp': [51.22, 4.40],
+        'bremen': [53.08, 8.80],
+        'felixstowe': [51.95, 1.35],
+        'le havre': [49.49, 0.11],
+        'marseille': [43.30, 5.37],
+        'valencia': [39.47, -0.38],
+        'barcelona': [41.39, 2.17],
+        'genoa': [44.41, 8.95],
+        'piraeus': [37.95, 23.64],
+        'istanbul': [41.01, 28.98],
+        'busan': [35.18, 129.08],
+        'tokyo': [35.68, 139.65],
+        'yokohama': [35.44, 139.64],
+        'kobe': [34.69, 135.20],
+        'mumbai': [19.08, 72.88],
+        'chennai': [13.08, 80.27],
+        'colombo': [6.93, 79.86],
+        'manila': [14.60, 120.98],
+        'jakarta': [6.21, 106.85],
+        'sydney': [33.87, 151.21],
+        'melbourne': [37.81, 144.96],
+        'auckland': [36.85, 174.76],
+        'new york': [40.69, -74.04],
+        'norfolk': [36.85, -76.29],
+        'charleston': [32.78, -79.93],
+        'miami': [25.76, -80.19],
+        'houston': [29.76, -95.37],
+        'seattle': [47.61, -122.33],
+        'vancouver': [49.28, -123.12],
+        'montreal': [45.50, -73.57],
+        'santos': [23.96, -46.33],
+        'rio de janeiro': [22.91, -43.17],
+        'buenos aires': [34.61, -58.40],
+        'valparaiso': [33.05, -71.61],
+        'lima': [12.05, -77.04],
+        'veracruz': [19.17, -96.13],
+        'cartagena': [10.39, -75.48],
+        'casablanca': [33.57, -7.59],
+        'lagos': [6.52, 3.38],
+        'durban': [29.86, 31.02],
+        'cape town': [33.92, 18.42],
+        'jeddah': [21.49, 39.19],
+        'kuwait': [29.31, 47.48],
+        'doha': [25.29, 51.53],
+        
+        # Countries for general location
+        'china': [35.0, 105.0],
+        'japan': [36.0, 138.0],
+        'korea': [36.0, 128.0],
+        'india': [20.0, 77.0],
+        'singapore country': [1.3, 103.8],
+        'malaysia': [4.2, 101.97],
+        'indonesia': [-0.79, 113.92],
+        'philippines': [13.0, 122.0],
+        'thailand': [15.87, 100.99],
+        'vietnam': [14.06, 108.28],
+        'australia': [-25.27, 133.77],
+        'new zealand': [-40.90, 174.89],
+        'united states': [39.83, -98.58],
+        'canada': [56.13, -106.35],
+        'brazil': [-14.24, -51.92],
+        'argentina': [-38.42, -63.62],
+        'chile': [-35.68, -71.54],
+        'peru': [-9.19, -75.02],
+        'colombia': [4.57, -74.30],
+        'panama': [8.54, -80.78],
+        'mexico': [23.63, -102.55],
+        'netherlands': [52.13, 5.29],
+        'germany': [51.17, 10.45],
+        'belgium': [50.50, 4.47],
+        'united kingdom': [55.38, -3.44],
+        'france': [46.23, 2.21],
+        'spain': [40.46, -3.75],
+        'italy': [41.87, 12.57],
+        'greece': [39.07, 21.82],
+        'turkey': [38.96, 35.24],
+        'russia': [61.52, 105.32],
+        'norway': [60.47, 8.47],
+        'sweden': [60.13, 18.64],
+        'denmark': [56.26, 9.50],
+        'poland': [51.92, 19.15],
+        'uae': [23.42, 53.85],
+        'saudi arabia': [23.89, 45.08],
+        'kuwait country': [29.31, 47.48],
+        'qatar': [25.35, 51.18],
+        'egypt': [26.82, 30.80],
+        'morocco': [31.79, -7.09],
+        'nigeria': [9.08, 8.68],
+        'south africa': [-30.56, 22.94]
     }
+    
+    # Find the best matching location
+    best_match = None
+    best_score = 0
     
     for location, coords in location_coords.items():
         if location in text_lower:
+            # Prefer more specific matches (longer location names)
+            score = len(location)
+            if score > best_score:
+                best_score = score
+                best_match = coords
+    
+    if best_match:
+        return best_match
+    
+    # If no specific location found, try to extract general maritime areas
+    maritime_regions = {
+        'atlantic': [30.0, -30.0],
+        'pacific': [0.0, -160.0], 
+        'indian ocean': [-10.0, 70.0],
+        'arctic': [75.0, 0.0],
+        'southern ocean': [-60.0, 0.0]
+    }
+    
+    for region, coords in maritime_regions.items():
+        if region in text_lower:
             return coords
     
-    return [0.0, 0.0]  # Default global coordinates
+    return [35.0, 0.0]  # Mid-latitude global coordinates instead of [0,0]
+
+def calculate_disruption_duration(text: str, severity: str) -> int:
+    """Calculate estimated duration in days based on disruption type and severity"""
+    text_lower = text.lower()
+    
+    # Short duration events (1-3 days)
+    if any(term in text_lower for term in ['explosion', 'fire', 'accident', 'collision', 'rescue']):
+        return 1 if severity == 'low' else 3
+    
+    # Medium duration events (3-14 days)
+    if any(term in text_lower for term in ['maintenance', 'repair', 'upgrade', 'weather', 'storm']):
+        return 7 if severity == 'low' else 14
+    
+    # Long duration events (14-90 days)
+    if any(term in text_lower for term in ['strike', 'blockade', 'sanctions', 'drought', 'construction']):
+        return 30 if severity == 'medium' else 90
+    
+    # Security/political events (variable duration)
+    if any(term in text_lower for term in ['security', 'conflict', 'tension', 'restrictions']):
+        return 60 if severity == 'high' else 30
+    
+    # Default duration based on severity
+    severity_duration = {
+        'low': 7,
+        'medium': 14,
+        'high': 30
+    }
+    return severity_duration.get(severity, 14)
 
 def infer_category(search_term: str) -> str:
     """Infer disruption category from search term"""
