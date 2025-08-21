@@ -22,6 +22,8 @@ import structlog
 from models.vessel_prediction import VesselMovementPredictor
 from models.disruption_detection import DisruptionDetector
 from models.location_aware_predictions import LocationAwarePredictor
+from models.calibrated_economic_predictor import CalibratedEconomicPredictor
+from services.bdi_validation_service import BalticDryIndexService
 from models.economic_impact import EconomicImpactAssessor
 from services.data_pipeline import DataPipeline
 from services.model_manager import ModelManager
@@ -62,6 +64,8 @@ async def lifespan(app: FastAPI):
     
     data_pipeline = DataPipeline(db_manager, model_manager)
     location_predictor = LocationAwarePredictor(db_manager)
+    economic_predictor = CalibratedEconomicPredictor(db_manager)
+    bdi_service = BalticDryIndexService()
     await data_pipeline.initialize()
     
     # Initialize enhanced data ingestion service
@@ -451,6 +455,105 @@ async def get_route_performance_predictions(hours_ahead: int = 336):
     except Exception as e:
         logger.error("Error generating route performance predictions", error=str(e))
         raise HTTPException(status_code=500, detail=f"Prediction generation failed: {str(e)}")
+
+# Baltic Dry Index validation and calibrated predictions
+@app.get("/validation/bdi-current")
+async def get_current_bdi():
+    """Get current Baltic Dry Index data"""
+    try:
+        current_bdi = await bdi_service.fetch_real_time_bdi()
+        return {
+            "bdi": {
+                "value": current_bdi.value,
+                "change": current_bdi.change,
+                "change_percent": current_bdi.change_percent,
+                "date": current_bdi.date.isoformat(),
+                "source": current_bdi.source
+            },
+            "market_status": "high_volatility" if abs(current_bdi.change_percent) > 3 else "normal",
+            "last_updated": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error("Error fetching current BDI", error=str(e))
+        raise HTTPException(status_code=500, detail=f"BDI fetch failed: {str(e)}")
+
+@app.get("/validation/model-accuracy")
+async def get_model_validation():
+    """Get comprehensive model validation report"""
+    try:
+        validation_report = await bdi_service.get_validation_report()
+        return {
+            "validation_report": validation_report,
+            "timestamp": datetime.utcnow().isoformat(),
+            "status": "active"
+        }
+    except Exception as e:
+        logger.error("Error generating validation report", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
+
+@app.get("/predictions/economic-calibrated")
+async def get_calibrated_economic_predictions(days_ahead: int = 7):
+    """Get calibrated economic predictions with BDI validation"""
+    try:
+        predictions = await economic_predictor.generate_calibrated_predictions(days_ahead)
+        return {
+            "predictions": [
+                {
+                    "metric": p.metric,
+                    "current_value": p.current_value,
+                    "predicted_value": p.predicted_value,
+                    "confidence": p.confidence,
+                    "time_horizon_days": p.time_horizon,
+                    "key_factors": p.factors,
+                    "calibration_applied": p.calibration_applied,
+                    "validation_score": p.validation_score
+                }
+                for p in predictions
+            ],
+            "total_predictions": len(predictions),
+            "time_horizon": days_ahead,
+            "calibration_status": "active",
+            "generated_at": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error("Error generating calibrated predictions", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Calibrated prediction failed: {str(e)}")
+
+@app.get("/validation/dashboard")
+async def get_validation_dashboard():
+    """Get comprehensive validation dashboard data"""
+    try:
+        dashboard_data = await economic_predictor.get_validation_dashboard_data()
+        return {
+            "dashboard": dashboard_data,
+            "status": "operational",
+            "last_updated": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error("Error getting validation dashboard", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Dashboard generation failed: {str(e)}")
+
+@app.post("/validation/recalibrate")
+async def trigger_model_recalibration():
+    """Manually trigger model recalibration"""
+    try:
+        # Force a validation and recalibration
+        validation_predictions = await economic_predictor._generate_validation_predictions()
+        validation_result = await bdi_service.validate_model_predictions(validation_predictions)
+        
+        # Apply recalibration
+        new_calibration = await bdi_service.calibrate_model_parameters(validation_result)
+        await economic_predictor._update_calibration_parameters(new_calibration)
+        
+        return {
+            "status": "recalibration_complete",
+            "new_accuracy": validation_result.accuracy_score,
+            "calibration_parameters": new_calibration,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error("Error during recalibration", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Recalibration failed: {str(e)}")
 
 @app.get("/streaming/live-data")
 async def get_live_streaming_data():

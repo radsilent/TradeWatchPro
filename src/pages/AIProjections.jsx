@@ -5,8 +5,9 @@ import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Progress } from '../components/ui/progress';
-import { Brain, TrendingUp, AlertTriangle, Clock, Target, Zap, Activity, MapPin } from 'lucide-react';
+import { Brain, TrendingUp, AlertTriangle, Clock, Target, Zap, Activity, MapPin, BarChart3 } from 'lucide-react';
 import LocationAwarePredictions from '../components/dashboard/LocationAwarePredictions';
+import BDIValidationDashboard from '../components/dashboard/BDIValidationDashboard';
 import streamingClient from '../api/streamingClient';
 
 const AIProjections = () => {
@@ -278,10 +279,11 @@ const AIProjections = () => {
 
       {/* Main Projections Tabs */}
       <Tabs defaultValue="locations" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="economic">Economic Projections</TabsTrigger>
           <TabsTrigger value="risks">Risk Assessments</TabsTrigger>
           <TabsTrigger value="locations">Location-Aware</TabsTrigger>
+          <TabsTrigger value="validation">BDI Validation</TabsTrigger>
         </TabsList>
 
 
@@ -379,6 +381,11 @@ const AIProjections = () => {
         {/* Location-Aware Predictions */}
         <TabsContent value="locations">
           <LocationAwarePredictions />
+        </TabsContent>
+
+        {/* BDI Validation Dashboard */}
+        <TabsContent value="validation">
+          <BDIValidationDashboard />
         </TabsContent>
       </Tabs>
     </div>
