@@ -16,6 +16,7 @@ export default function GlobalMap({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [legendCollapsed, setLegendCollapsed] = useState(false);
 
   console.log('GlobalMap component rendered with:', { 
     portsLength: ports.length, 
@@ -623,13 +624,25 @@ export default function GlobalMap({
       <MapComponent />
       
               {/* Map Legend */}
-        <div className={`absolute ${isMobile ? 'top-2 right-2 max-w-[200px]' : 'top-4 right-4 max-w-xs'} bg-white/95 backdrop-blur-sm border border-slate-200 rounded-lg shadow-lg ${isMobile ? 'p-2' : 'p-4'} z-[1000]`}>
-        <h3 className={`font-semibold text-slate-900 ${isMobile ? 'mb-2 text-sm' : 'mb-3'} flex items-center`}>
-          <svg className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-          </svg>
-          {isMobile ? 'Legend' : 'Map Legend'}
-        </h3>
+        <div className={`absolute ${isMobile ? 'top-2 right-2' : 'top-4 right-4 max-w-xs'} bg-white/95 backdrop-blur-sm border border-slate-200 rounded-lg shadow-lg ${isMobile ? 'p-2' : 'p-4'} z-[1000] ${isMobile ? 'max-w-[140px]' : ''}`}>
+        <div className={`font-semibold text-slate-900 ${isMobile ? 'mb-2 text-sm' : 'mb-3'} flex items-center ${isMobile ? 'justify-between' : ''}`}>
+          <div className="flex items-center">
+            <svg className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+            </svg>
+            <span>{isMobile ? 'Legend' : 'Map Legend'}</span>
+          </div>
+          {isMobile && (
+            <button
+              onClick={() => setLegendCollapsed(!legendCollapsed)}
+              className="p-1 hover:bg-slate-200 rounded"
+            >
+              <svg className="w-3 h-3 text-slate-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d={legendCollapsed ? "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" : "M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"} clipRule="evenodd" />
+              </svg>
+            </button>
+          )}
+        </div>
         
         <div className={`space-y-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
           {/* Ports */}
