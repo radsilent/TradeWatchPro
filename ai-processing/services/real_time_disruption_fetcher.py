@@ -1,617 +1,418 @@
 """
-Real-time Maritime Disruption Data Fetcher
-Fetches current maritime incidents from multiple real-world sources
+Real-time maritime disruption fetcher using existing frontend APIs
+Integrates with news APIs and RSS feeds to get live disruption data
 """
 
 import asyncio
 import aiohttp
 import json
 import logging
-import re
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
-from bs4 import BeautifulSoup
-import time
-from dataclasses import dataclass
-import httpx
-from urllib.parse import urljoin, urlparse
+from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-@dataclass
-class MaritimeDisruption:
-    incident_id: str
-    title: str
-    description: str
-    location: dict  # {"lat": float, "lng": float, "name": str}
-    severity: str  # low, medium, high, critical
-    incident_type: str  # port_closure, weather, accident, security, etc.
-    start_date: datetime
-    end_date: Optional[datetime]
-    affected_vessels: Optional[int]
-    economic_impact: Optional[int]
-    source: str
-    source_url: str
-    confidence_score: float
-    last_updated: datetime
+# News API endpoints and configurations
+API_ENDPOINTS = {
+    'newsapi': 'https://newsapi.org/v2/everything',
+    'rss_feeds': {
+        'reuters': 'https://www.reuters.com/business/aerospace-defense/rss',
+        'maritime_executive': 'https://www.maritime-executive.com/rss.xml',
+        'trade_winds': 'https://www.tradewindsnews.com/rss'
+    }
+}
 
-class RealTimeDisruptionFetcher:
-    def __init__(self):
-        self.session = None
-        self.cache = {}
-        self.cache_ttl = 600  # 10 minutes cache
-        
-        # Maritime news and incident sources
-        self.sources = {
-            'maritime_executive': 'https://www.maritime-executive.com/',
-            'lloyd_list': 'https://lloydslist.maritimeintelligence.informa.com/',
-            'splash247': 'https://splash247.com/',
-            'ship_technology': 'https://www.ship-technology.com/',
-            'maritime_journal': 'https://www.maritimejournal.com/',
-            'trade_winds': 'https://www.tradewindsnews.com/',
-            'gcaptain': 'https://gcaptain.com/',
-            'vessel_finder_news': 'https://www.vesselfinder.com/news'
-        }
-        
-        # Search terms for maritime disruptions
-        self.disruption_keywords = [
-            'port closure', 'port strike', 'port congestion', 'canal blocked', 'canal closure',
-            'shipping disruption', 'vessel accident', 'container shortage', 'supply chain',
-            'maritime incident', 'ship collision', 'grounding', 'port labor', 'dock strike',
-            'typhoon shipping', 'hurricane port', 'storm maritime', 'weather delay',
-            'cyber attack port', 'security threat', 'piracy', 'naval blockade',
-            'suez canal', 'panama canal', 'strait of hormuz', 'malacca strait',
-            'container terminal', 'cargo delay', 'freight disruption', 'trade route',
-            'vessel detention', 'port authority', 'maritime emergency', 'ship fire',
-            'oil spill', 'environmental incident', 'coast guard', 'maritime rescue'
-        ]
-        
-    async def __aenter__(self):
-        self.session = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=15),
-            headers={
-                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-        )
-        return self
+# CORS proxies for handling cross-origin requests
+CORS_PROXIES = [
+    'https://api.allorigins.win/get?url=',
+    'https://corsproxy.io/?',
+    'https://api.codetabs.com/v1/proxy?quest='
+]
+
+async def get_real_time_disruptions(limit: int = 20) -> List[Dict[str, Any]]:
+    """
+    Fetch real-time maritime disruptions from news APIs and RSS feeds
+    Returns list of disruption dictionaries with proper coordinates
+    """
+    logger.info("Starting real-time disruption fetch from external APIs...")
     
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.session:
-            await self.session.close()
+    disruptions = []
     
-    async def fetch_current_disruptions(self) -> List[MaritimeDisruption]:
-        """Fetch current maritime disruptions from multiple sources"""
+    # Comprehensive maritime search terms
+    search_terms = [
+        # Core maritime incidents
+        "maritime disruption", "shipping delay", "port strike", "suez canal", "panama canal",
+        "red sea shipping", "container ship", "supply chain disruption", "maritime security",
+        "port congestion", "vessel breakdown", "cargo delay", "terminal closure",
         
-        # Check cache first
-        cached_data = self._get_cached_disruptions()
-        if cached_data:
-            logger.info(f"Returning {len(cached_data)} cached disruptions")
-            return cached_data
+        # Specific waterways and ports
+        "strait of hormuz", "singapore port", "los angeles port", "hamburg port", 
+        "rotterdam port", "shanghai port", "long beach port", "felixstowe port",
+        "gulf of aden", "strait of malacca", "english channel", "bosphorus strait",
         
-        all_disruptions = []
-        
-        # Fetch from multiple sources in parallel
-        fetch_tasks = [
-            self._fetch_from_maritime_executive(),
-            self._fetch_from_gcaptain(),
-            self._fetch_from_splash247(),
-            self._fetch_from_vessel_finder(),
-            self._fetch_from_rss_feeds(),
-        ]
-        
-        results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
-        
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                logger.warning(f"Source {i} failed: {result}")
-                continue
-            if result:
-                all_disruptions.extend(result)
-        
-        # Remove duplicates and sort by severity
-        unique_disruptions = self._deduplicate_disruptions(all_disruptions)
-        sorted_disruptions = sorted(unique_disruptions, key=lambda x: self._severity_weight(x.severity), reverse=True)
-        
-        # Cache the results
-        self._cache_disruptions(sorted_disruptions)
-        
-        logger.info(f"Fetched {len(sorted_disruptions)} unique maritime disruptions")
-        return sorted_disruptions
+        # Maritime incidents
+        "ship collision", "vessel grounding", "port accident", "dock workers strike",
+        "maritime terrorism", "piracy attack", "coast guard", "customs inspection",
+        "oil spill", "container ship fire", "cargo contamination", "anchor dragging"
+    ]
     
-    async def _fetch_from_maritime_executive(self) -> List[MaritimeDisruption]:
-        """Scrape maritime disruptions from The Maritime Executive"""
-        disruptions = []
-        try:
-            url = "https://www.maritime-executive.com/search?q=disruption+port+shipping"
-            async with self.session.get(url) as response:
-                if response.status != 200:
-                    return disruptions
-                
-                html = await response.text()
-                soup = BeautifulSoup(html, 'html.parser')
-                
-                # Find article elements
-                articles = soup.find_all('article') or soup.find_all('div', class_=['article', 'news-item'])
-                
-                for article in articles[:10]:  # Limit to recent articles
-                    try:
-                        title_elem = article.find(['h1', 'h2', 'h3']) or article.find('a')
-                        if not title_elem:
-                            continue
-                        
-                        title = title_elem.get_text(strip=True)
-                        
-                        # Check if title contains disruption keywords
-                        if not any(keyword.lower() in title.lower() for keyword in self.disruption_keywords):
-                            continue
-                        
-                        # Extract link
-                        link_elem = title_elem if title_elem.name == 'a' else title_elem.find('a')
-                        article_url = ""
-                        if link_elem and link_elem.get('href'):
-                            article_url = urljoin(url, link_elem['href'])
-                        
-                        # Extract description
-                        desc_elem = article.find(['p', 'div'], class_=['summary', 'excerpt', 'description'])
-                        description = desc_elem.get_text(strip=True)[:200] if desc_elem else ""
-                        
-                        # Determine incident type and severity from title/description
-                        incident_type = self._classify_incident_type(title + " " + description)
-                        severity = self._determine_severity(title + " " + description)
-                        
-                        # Extract location information
-                        location = self._extract_location_from_text(title + " " + description)
-                        
-                        disruption = MaritimeDisruption(
-                            incident_id=f"ME_{hash(title)}_{int(time.time())}",
-                            title=title,
-                            description=description,
-                            location=location,
-                            severity=severity,
-                            incident_type=incident_type,
-                            start_date=datetime.now(),
-                            end_date=None,
-                            affected_vessels=self._estimate_affected_vessels(title + " " + description),
-                            economic_impact=None,
-                            source="maritime_executive",
-                            source_url=article_url,
-                            confidence_score=0.75,
-                            last_updated=datetime.now()
-                        )
-                        
-                        disruptions.append(disruption)
-                        
-                    except Exception as e:
-                        logger.warning(f"Error processing Maritime Executive article: {e}")
-                        continue
-                        
-        except Exception as e:
-            logger.error(f"Error fetching from Maritime Executive: {e}")
-        
-        return disruptions
-    
-    async def _fetch_from_gcaptain(self) -> List[MaritimeDisruption]:
-        """Scrape maritime disruptions from gCaptain"""
-        disruptions = []
-        try:
-            url = "https://gcaptain.com/"
-            async with self.session.get(url) as response:
-                if response.status != 200:
-                    return disruptions
-                
-                html = await response.text()
-                soup = BeautifulSoup(html, 'html.parser')
-                
-                # Find news articles
-                articles = soup.find_all(['article', 'div'], class_=['post', 'entry', 'news'])
-                
-                for article in articles[:15]:
-                    try:
-                        title_elem = article.find(['h1', 'h2', 'h3', 'h4'])
-                        if not title_elem:
-                            continue
-                        
-                        title = title_elem.get_text(strip=True)
-                        
-                        # Check for disruption-related content
-                        if not any(keyword.lower() in title.lower() for keyword in self.disruption_keywords):
-                            continue
-                        
-                        # Get article URL
-                        link_elem = title_elem.find('a') or article.find('a')
-                        article_url = ""
-                        if link_elem and link_elem.get('href'):
-                            article_url = urljoin(url, link_elem['href'])
-                        
-                        # Extract summary
-                        summary_elem = article.find(['p', 'div'], class_=['excerpt', 'summary'])
-                        description = summary_elem.get_text(strip=True)[:200] if summary_elem else ""
-                        
-                        incident_type = self._classify_incident_type(title + " " + description)
-                        severity = self._determine_severity(title + " " + description)
-                        location = self._extract_location_from_text(title + " " + description)
-                        
-                        disruption = MaritimeDisruption(
-                            incident_id=f"GC_{hash(title)}_{int(time.time())}",
-                            title=title,
-                            description=description,
-                            location=location,
-                            severity=severity,
-                            incident_type=incident_type,
-                            start_date=datetime.now(),
-                            end_date=None,
-                            affected_vessels=self._estimate_affected_vessels(title + " " + description),
-                            economic_impact=None,
-                            source="gcaptain",
-                            source_url=article_url,
-                            confidence_score=0.80,
-                            last_updated=datetime.now()
-                        )
-                        
-                        disruptions.append(disruption)
-                        
-                    except Exception as e:
-                        logger.warning(f"Error processing gCaptain article: {e}")
-                        continue
-                        
-        except Exception as e:
-            logger.error(f"Error fetching from gCaptain: {e}")
-        
-        return disruptions
-    
-    async def _fetch_from_splash247(self) -> List[MaritimeDisruption]:
-        """Scrape maritime disruptions from Splash247"""
-        disruptions = []
-        try:
-            url = "https://splash247.com/"
-            async with self.session.get(url) as response:
-                if response.status != 200:
-                    return disruptions
-                
-                html = await response.text()
-                soup = BeautifulSoup(html, 'html.parser')
-                
-                # Find article headlines
-                articles = soup.find_all(['h2', 'h3'], class_=['entry-title', 'headline', 'title'])
-                
-                for article in articles[:12]:
-                    try:
-                        title = article.get_text(strip=True)
-                        
-                        if not any(keyword.lower() in title.lower() for keyword in self.disruption_keywords):
-                            continue
-                        
-                        # Get article link
-                        link_elem = article.find('a')
-                        article_url = ""
-                        if link_elem and link_elem.get('href'):
-                            article_url = urljoin(url, link_elem['href'])
-                        
-                        incident_type = self._classify_incident_type(title)
-                        severity = self._determine_severity(title)
-                        location = self._extract_location_from_text(title)
-                        
-                        disruption = MaritimeDisruption(
-                            incident_id=f"SP_{hash(title)}_{int(time.time())}",
-                            title=title,
-                            description="",
-                            location=location,
-                            severity=severity,
-                            incident_type=incident_type,
-                            start_date=datetime.now(),
-                            end_date=None,
-                            affected_vessels=self._estimate_affected_vessels(title),
-                            economic_impact=None,
-                            source="splash247",
-                            source_url=article_url,
-                            confidence_score=0.70,
-                            last_updated=datetime.now()
-                        )
-                        
-                        disruptions.append(disruption)
-                        
-                    except Exception as e:
-                        logger.warning(f"Error processing Splash247 article: {e}")
-                        continue
-                        
-        except Exception as e:
-            logger.error(f"Error fetching from Splash247: {e}")
-        
-        return disruptions
-    
-    async def _fetch_from_vessel_finder(self) -> List[MaritimeDisruption]:
-        """Scrape maritime news from VesselFinder"""
-        disruptions = []
-        try:
-            url = "https://www.vesselfinder.com/news"
-            async with self.session.get(url) as response:
-                if response.status != 200:
-                    return disruptions
-                
-                html = await response.text()
-                soup = BeautifulSoup(html, 'html.parser')
-                
-                # Find news items
-                news_items = soup.find_all(['div', 'article'], class_=['news-item', 'article'])
-                
-                for item in news_items[:10]:
-                    try:
-                        title_elem = item.find(['h2', 'h3', 'h4'])
-                        if not title_elem:
-                            continue
-                        
-                        title = title_elem.get_text(strip=True)
-                        
-                        if not any(keyword.lower() in title.lower() for keyword in self.disruption_keywords):
-                            continue
-                        
-                        link_elem = title_elem.find('a') or item.find('a')
-                        article_url = ""
-                        if link_elem and link_elem.get('href'):
-                            article_url = urljoin(url, link_elem['href'])
-                        
-                        # Get description
-                        desc_elem = item.find(['p', 'div'], class_=['summary', 'description'])
-                        description = desc_elem.get_text(strip=True)[:200] if desc_elem else ""
-                        
-                        incident_type = self._classify_incident_type(title + " " + description)
-                        severity = self._determine_severity(title + " " + description)
-                        location = self._extract_location_from_text(title + " " + description)
-                        
-                        disruption = MaritimeDisruption(
-                            incident_id=f"VF_{hash(title)}_{int(time.time())}",
-                            title=title,
-                            description=description,
-                            location=location,
-                            severity=severity,
-                            incident_type=incident_type,
-                            start_date=datetime.now(),
-                            end_date=None,
-                            affected_vessels=self._estimate_affected_vessels(title + " " + description),
-                            economic_impact=None,
-                            source="vesselfinder",
-                            source_url=article_url,
-                            confidence_score=0.72,
-                            last_updated=datetime.now()
-                        )
-                        
-                        disruptions.append(disruption)
-                        
-                    except Exception as e:
-                        logger.warning(f"Error processing VesselFinder article: {e}")
-                        continue
-                        
-        except Exception as e:
-            logger.error(f"Error fetching from VesselFinder: {e}")
-        
-        return disruptions
-    
-    async def _fetch_from_rss_feeds(self) -> List[MaritimeDisruption]:
-        """Fetch from maritime RSS feeds"""
-        disruptions = []
-        
-        rss_feeds = [
-            'https://www.maritime-executive.com/rss.xml',
-            'https://gcaptain.com/feed/',
-            'https://splash247.com/feed/',
-        ]
-        
-        for feed_url in rss_feeds:
-            try:
-                async with self.session.get(feed_url) as response:
-                    if response.status != 200:
-                        continue
-                    
-                    content = await response.text()
-                    # Simple RSS parsing - in production, use proper XML parser
-                    
-                    # Extract titles between <title> tags
-                    title_matches = re.findall(r'<title><!\[CDATA\[(.*?)\]\]></title>', content)
-                    if not title_matches:
-                        title_matches = re.findall(r'<title>(.*?)</title>', content)
-                    
-                    # Extract descriptions
-                    desc_matches = re.findall(r'<description><!\[CDATA\[(.*?)\]\]></description>', content)
-                    if not desc_matches:
-                        desc_matches = re.findall(r'<description>(.*?)</description>', content)
-                    
-                    for i, title in enumerate(title_matches[:10]):
-                        if not any(keyword.lower() in title.lower() for keyword in self.disruption_keywords):
-                            continue
-                        
-                        description = desc_matches[i] if i < len(desc_matches) else ""
-                        description = re.sub(r'<[^>]+>', '', description)[:200]  # Strip HTML tags
-                        
-                        incident_type = self._classify_incident_type(title + " " + description)
-                        severity = self._determine_severity(title + " " + description)
-                        location = self._extract_location_from_text(title + " " + description)
-                        
-                        disruption = MaritimeDisruption(
-                            incident_id=f"RSS_{hash(title)}_{int(time.time())}",
-                            title=title,
-                            description=description,
-                            location=location,
-                            severity=severity,
-                            incident_type=incident_type,
-                            start_date=datetime.now(),
-                            end_date=None,
-                            affected_vessels=self._estimate_affected_vessels(title + " " + description),
-                            economic_impact=None,
-                            source="rss_feed",
-                            source_url=feed_url,
-                            confidence_score=0.65,
-                            last_updated=datetime.now()
-                        )
-                        
-                        disruptions.append(disruption)
-                        
-            except Exception as e:
-                logger.warning(f"Error fetching RSS feed {feed_url}: {e}")
-                continue
-        
-        return disruptions
-    
-    def _classify_incident_type(self, text: str) -> str:
-        """Classify incident type based on text content"""
-        text_lower = text.lower()
-        
-        if any(word in text_lower for word in ['strike', 'labor', 'union', 'worker']):
-            return 'labor_disruption'
-        elif any(word in text_lower for word in ['storm', 'hurricane', 'typhoon', 'weather', 'wind']):
-            return 'weather_extreme'
-        elif any(word in text_lower for word in ['cyber', 'hack', 'malware', 'security breach']):
-            return 'cyber_security'
-        elif any(word in text_lower for word in ['collision', 'accident', 'grounding', 'fire', 'explosion']):
-            return 'vessel_accident'
-        elif any(word in text_lower for word in ['blockage', 'blocked', 'canal', 'closure']):
-            return 'waterway_blockage'
-        elif any(word in text_lower for word in ['congestion', 'delay', 'backlog']):
-            return 'port_congestion'
-        elif any(word in text_lower for word in ['piracy', 'attack', 'threat', 'security']):
-            return 'security_threat'
-        elif any(word in text_lower for word in ['spill', 'pollution', 'environmental']):
-            return 'environmental_incident'
-        else:
-            return 'general_disruption'
-    
-    def _determine_severity(self, text: str) -> str:
-        """Determine severity based on text content"""
-        text_lower = text.lower()
-        
-        # Critical indicators
-        if any(word in text_lower for word in ['emergency', 'critical', 'major', 'massive', 'catastrophic', 'severe']):
-            return 'critical'
-        # High severity indicators
-        elif any(word in text_lower for word in ['significant', 'serious', 'substantial', 'widespread']):
-            return 'high'
-        # Medium severity indicators
-        elif any(word in text_lower for word in ['moderate', 'partial', 'limited', 'temporary']):
-            return 'medium'
-        # Default to low
-        else:
-            return 'low'
-    
-    def _extract_location_from_text(self, text: str) -> dict:
-        """Extract location information from text"""
-        # Common maritime locations
-        locations = {
-            'suez canal': {'lat': 30.0131, 'lng': 32.5899, 'name': 'Suez Canal'},
-            'panama canal': {'lat': 9.0820, 'lng': -79.6821, 'name': 'Panama Canal'},
-            'strait of hormuz': {'lat': 26.5669, 'lng': 56.2497, 'name': 'Strait of Hormuz'},
-            'malacca strait': {'lat': 4.0, 'lng': 100.0, 'name': 'Malacca Strait'},
-            'singapore': {'lat': 1.2644, 'lng': 103.8315, 'name': 'Singapore'},
-            'rotterdam': {'lat': 51.9225, 'lng': 4.47917, 'name': 'Rotterdam'},
-            'shanghai': {'lat': 31.2304, 'lng': 121.4737, 'name': 'Shanghai'},
-            'los angeles': {'lat': 33.7361, 'lng': -118.2639, 'name': 'Los Angeles'},
-            'long beach': {'lat': 33.7701, 'lng': -118.1937, 'name': 'Long Beach'},
-            'hong kong': {'lat': 22.3193, 'lng': 114.1694, 'name': 'Hong Kong'},
-            'dubai': {'lat': 25.2048, 'lng': 55.2708, 'name': 'Dubai'},
-            'hamburg': {'lat': 53.5511, 'lng': 9.9937, 'name': 'Hamburg'},
-            'antwerp': {'lat': 51.2194, 'lng': 4.4025, 'name': 'Antwerp'},
-        }
-        
-        text_lower = text.lower()
-        for location_name, coords in locations.items():
-            if location_name in text_lower:
-                return coords
-        
-        # Default unknown location
-        return {'lat': 0.0, 'lng': 0.0, 'name': 'Unknown'}
-    
-    def _estimate_affected_vessels(self, text: str) -> Optional[int]:
-        """Estimate number of affected vessels from text"""
-        text_lower = text.lower()
-        
-        # Look for specific numbers
-        vessel_numbers = re.findall(r'(\d+)\s*(?:vessels?|ships?)', text_lower)
-        if vessel_numbers:
-            return int(vessel_numbers[0])
-        
-        # Estimate based on severity words
-        if any(word in text_lower for word in ['hundreds', 'massive', 'major']):
-            return 200
-        elif any(word in text_lower for word in ['dozens', 'many', 'multiple']):
-            return 50
-        elif any(word in text_lower for word in ['several', 'few']):
-            return 10
-        
-        return None
-    
-    def _deduplicate_disruptions(self, disruptions: List[MaritimeDisruption]) -> List[MaritimeDisruption]:
-        """Remove duplicate disruptions based on title similarity"""
-        unique_disruptions = []
-        seen_titles = set()
-        
-        for disruption in disruptions:
-            # Create a normalized title for comparison
-            normalized_title = re.sub(r'[^\w\s]', '', disruption.title.lower())
+    try:
+        # Fetch from RSS feeds and free sources (no API keys required)
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
+            tasks = []
             
-            # Check for similarity with existing titles
-            is_duplicate = False
-            for seen_title in seen_titles:
-                if self._calculate_similarity(normalized_title, seen_title) > 0.8:
-                    is_duplicate = True
+            # Fetch from RSS feeds
+            rss_feeds = {
+                'maritime_executive': 'https://www.maritime-executive.com/rss.xml',
+                'splash247': 'https://splash247.com/feed/',
+                'ship_technology': 'https://www.ship-technology.com/rss/',
+                'port_technology': 'https://www.porttechnology.org/rss.xml'
+            }
+            
+            for source, rss_url in rss_feeds.items():
+                task = fetch_rss_disruptions(session, source, rss_url)
+                tasks.append(task)
+            
+            # Execute all RSS fetches concurrently
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Process results
+            for result in results:
+                if isinstance(result, list):
+                    disruptions.extend(result)
+                elif isinstance(result, Exception):
+                    logger.warning(f"RSS fetch failed: {result}")
+                    
+                # Limit total disruptions to avoid overwhelming the system
+                if len(disruptions) >= limit:
                     break
             
-            if not is_duplicate:
-                unique_disruptions.append(disruption)
-                seen_titles.add(normalized_title)
-        
-        return unique_disruptions
-    
-    def _calculate_similarity(self, text1: str, text2: str) -> float:
-        """Calculate simple text similarity"""
-        words1 = set(text1.split())
-        words2 = set(text2.split())
-        
-        if not words1 and not words2:
-            return 1.0
-        
-        intersection = words1.intersection(words2)
-        union = words1.union(words2)
-        
-        return len(intersection) / len(union) if union else 0.0
-    
-    def _severity_weight(self, severity: str) -> int:
-        """Convert severity to numeric weight for sorting"""
-        weights = {'critical': 4, 'high': 3, 'medium': 2, 'low': 1}
-        return weights.get(severity, 1)
-    
-    def _get_cached_disruptions(self) -> Optional[List[MaritimeDisruption]]:
-        """Get cached disruption data if still valid"""
-        if 'disruptions' in self.cache:
-            cached_data, timestamp = self.cache['disruptions']
-            if time.time() - timestamp < self.cache_ttl:
-                return cached_data
-        return None
-    
-    def _cache_disruptions(self, disruptions: List[MaritimeDisruption]):
-        """Cache disruption data"""
-        self.cache['disruptions'] = (disruptions, time.time())
-
-# Usage functions
-async def get_current_maritime_disruptions() -> List[MaritimeDisruption]:
-    """Convenience function to get current maritime disruptions"""
-    async with RealTimeDisruptionFetcher() as fetcher:
-        return await fetcher.fetch_current_disruptions()
-
-# Test the fetcher
-if __name__ == "__main__":
-    async def test_disruption_fetcher():
-        print("Testing Real-time Maritime Disruption Fetcher...")
-        
-        async with RealTimeDisruptionFetcher() as fetcher:
-            disruptions = await fetcher.fetch_current_disruptions()
+            # Remove duplicates and sort by confidence/severity
+            disruptions = remove_duplicates(disruptions)
+            disruptions = sorted(disruptions, key=lambda x: (
+                severity_score(x.get('severity', 'low')),
+                x.get('confidence', 0)
+            ), reverse=True)
             
-            print(f"✅ Successfully fetched {len(disruptions)} maritime disruptions:")
+            logger.info(f"Successfully fetched {len(disruptions)} real-time disruptions from RSS feeds")
+            return disruptions[:limit]
             
-            for i, disruption in enumerate(disruptions[:5], 1):
-                print(f"\n{i}. {disruption.title}")
-                print(f"   Type: {disruption.incident_type}")
-                print(f"   Severity: {disruption.severity}")
-                print(f"   Location: {disruption.location['name']}")
-                print(f"   Source: {disruption.source}")
-                if disruption.affected_vessels:
-                    print(f"   Affected Vessels: {disruption.affected_vessels}")
+    except Exception as e:
+        logger.error(f"Error fetching real-time disruptions: {e}")
+        return []
+
+async def fetch_news_for_term(session: aiohttp.ClientSession, search_term: str) -> List[Dict[str, Any]]:
+    """Fetch news articles for a specific maritime search term"""
+    disruptions = []
     
-    asyncio.run(test_disruption_fetcher())
+    try:
+        # Try NewsAPI first
+        url = f"{API_ENDPOINTS['newsapi']}?q={search_term}&language=en&sortBy=publishedAt&pageSize=5"
+        
+        # Try direct fetch first, then CORS proxies
+        response = None
+        
+        try:
+            async with session.get(url) as resp:
+                if resp.status == 200:
+                    response = resp
+        except Exception:
+            # Try CORS proxies
+            for proxy in CORS_PROXIES[:2]:  # Limit proxy attempts
+                try:
+                    proxy_url = proxy + url
+                    async with session.get(proxy_url) as resp:
+                        if resp.status == 200:
+                            response = resp
+                            break
+                except Exception:
+                    continue
+        
+        if response:
+            data = await response.json()
+            articles = data.get('articles', [])
+            
+            for article in articles:
+                if is_maritime_relevant(article.get('title', '') + ' ' + article.get('description', '')):
+                    disruption = convert_article_to_disruption(article, search_term)
+                    if disruption:
+                        disruptions.append(disruption)
+                        
+    except Exception as e:
+        logger.warning(f"Failed to fetch news for term '{search_term}': {e}")
+    
+    return disruptions
+
+async def fetch_rss_disruptions(session: aiohttp.ClientSession, source: str, rss_url: str) -> List[Dict[str, Any]]:
+    """Fetch maritime disruptions from RSS feeds"""
+    disruptions = []
+    
+    try:
+        async with session.get(rss_url) as response:
+            if response.status == 200:
+                content = await response.text()
+                
+                # Parse RSS feed
+                from xml.etree import ElementTree as ET
+                try:
+                    root = ET.fromstring(content)
+                    
+                    # Handle different RSS formats
+                    items = root.findall('.//item') or root.findall('.//{http://www.w3.org/2005/Atom}entry')
+                    
+                    for item in items[:10]:  # Limit to 10 items per feed
+                        title = ""
+                        description = ""
+                        pub_date = ""
+                        link = ""
+                        
+                        # Extract RSS item data
+                        title_elem = item.find('title') or item.find('.//{http://www.w3.org/2005/Atom}title')
+                        if title_elem is not None:
+                            title = title_elem.text or ""
+                        
+                        desc_elem = item.find('description') or item.find('.//{http://www.w3.org/2005/Atom}summary')
+                        if desc_elem is not None:
+                            description = desc_elem.text or ""
+                        
+                        link_elem = item.find('link') or item.find('.//{http://www.w3.org/2005/Atom}link')
+                        if link_elem is not None:
+                            link = link_elem.text if hasattr(link_elem, 'text') else link_elem.get('href', '')
+                        
+                        pub_elem = item.find('pubDate') or item.find('.//{http://www.w3.org/2005/Atom}published')
+                        if pub_elem is not None:
+                            pub_date = pub_elem.text or ""
+                        
+                        # Check if maritime relevant
+                        combined_text = f"{title} {description}"
+                        if is_maritime_relevant(combined_text):
+                            # Create disruption from RSS item
+                            disruption = {
+                                'id': f"rss_{source}_{hash(title)%100000}",
+                                'title': title[:100],  # Limit title length
+                                'description': description[:300] if description else title,
+                                'severity': classify_severity(combined_text),
+                                'status': 'active',
+                                'coordinates': get_location_from_text(combined_text),
+                                'sources': [{
+                                    'name': source.replace('_', ' ').title(),
+                                    'url': link,
+                                    'reliability': 'medium',
+                                    'published_date': pub_date
+                                }],
+                                'confidence': calculate_confidence(combined_text, 1),  # Assume 1 day old
+                                'last_updated': datetime.now().isoformat()
+                            }
+                            disruptions.append(disruption)
+                            
+                except ET.ParseError as e:
+                    logger.warning(f"Failed to parse RSS from {source}: {e}")
+                    
+    except Exception as e:
+        logger.warning(f"Failed to fetch RSS from {source}: {e}")
+    
+    return disruptions
+
+def is_maritime_relevant(text: str) -> bool:
+    """Check if article text is relevant to maritime operations"""
+    text_lower = text.lower()
+    
+    # Exclude non-maritime topics
+    exclude_keywords = [
+        'meta', 'facebook', 'instagram', 'ai chat', 'artificial intelligence',
+        'children', 'sensual', 'politics', 'election', 'celebrity', 'entertainment',
+        'sports', 'cryptocurrency', 'bitcoin', 'gaming', 'healthcare', 'covid vaccine',
+        'automobile', 'tesla', 'real estate', 'restaurant', 'retail'
+    ]
+    
+    if any(keyword in text_lower for keyword in exclude_keywords):
+        return False
+    
+    # Maritime-specific keywords (must have at least 2 matches)
+    maritime_keywords = [
+        'shipping', 'maritime', 'vessel', 'cargo ship', 'container ship', 'port',
+        'harbor', 'terminal', 'dock', 'tanker', 'freight', 'supply chain',
+        'suez canal', 'panama canal', 'strait', 'navigation', 'coast guard',
+        'loading', 'unloading', 'berth', 'anchorage', 'pilot service',
+        'bill of lading', 'manifest', 'customs', 'import', 'export'
+    ]
+    
+    matches = sum(1 for keyword in maritime_keywords if keyword in text_lower)
+    return matches >= 2
+
+def convert_article_to_disruption(article: Dict[str, Any], search_term: str) -> Dict[str, Any]:
+    """Convert news article to disruption format"""
+    title = article.get('title', 'Maritime Disruption')
+    description = article.get('description', 'Maritime disruption reported in recent news')
+    content = title + ' ' + description
+    
+    published_date = article.get('publishedAt')
+    if published_date:
+        try:
+            pub_date = datetime.fromisoformat(published_date.replace('Z', '+00:00'))
+        except:
+            pub_date = datetime.now()
+    else:
+        pub_date = datetime.now()
+    
+    # Determine if disruption is still active (within last 7 days)
+    days_old = (datetime.now() - pub_date.replace(tzinfo=None)).days
+    status = 'active' if days_old <= 7 else 'monitoring'
+    
+    return {
+        "id": f"news_{int(pub_date.timestamp())}_{abs(hash(title)) % 10000}",
+        "title": title[:100],
+        "description": description[:200] if description else "Maritime disruption reported in recent news",
+        "severity": infer_severity(content),
+        "status": status,
+        "affected_regions": infer_regions(content),
+        "coordinates": infer_coordinates(content),
+        "sources": [{
+            "name": article.get('source', {}).get('name', 'News Source'),
+            "url": article.get('url', ''),
+            "reliability": "high",
+            "published_date": pub_date.isoformat()
+        }],
+        "confidence": calculate_confidence(content, days_old),
+        "last_updated": datetime.now().isoformat(),
+        "category": infer_category(search_term),
+        "start_date": pub_date.isoformat(),
+        "end_date": None
+    }
+
+def infer_severity(text: str) -> str:
+    """Infer disruption severity from article text"""
+    text_lower = text.lower()
+    
+    critical_terms = ['crisis', 'critical', 'severe', 'emergency', 'catastrophic', 'massive']
+    high_terms = ['significant', 'serious', 'major', 'substantial', 'heavy', 'widespread']
+    medium_terms = ['moderate', 'notable', 'considerable', 'affecting', 'impact']
+    
+    if any(term in text_lower for term in critical_terms):
+        return 'high'
+    elif any(term in text_lower for term in high_terms):
+        return 'medium'
+    elif any(term in text_lower for term in medium_terms):
+        return 'medium'
+    else:
+        return 'low'
+
+def infer_regions(text: str) -> List[str]:
+    """Infer affected regions from article text"""
+    text_lower = text.lower()
+    
+    region_keywords = {
+        'red sea': ['Red Sea', 'Gulf of Aden'],
+        'suez': ['Suez Canal', 'Mediterranean Sea'],
+        'panama': ['Panama Canal', 'Caribbean Sea'],
+        'south china sea': ['South China Sea', 'Southeast Asia'],
+        'strait of hormuz': ['Strait of Hormuz', 'Persian Gulf'],
+        'malacca': ['Strait of Malacca', 'Southeast Asia'],
+        'singapore': ['Singapore', 'Southeast Asia'],
+        'los angeles': ['Los Angeles', 'US West Coast'],
+        'hamburg': ['Hamburg', 'Northern Europe'],
+        'rotterdam': ['Rotterdam', 'Northern Europe'],
+        'mediterranean': ['Mediterranean Sea'],
+        'atlantic': ['North Atlantic'],
+        'pacific': ['Pacific Ocean'],
+        'baltic': ['Baltic Sea', 'Northern Europe']
+    }
+    
+    regions = []
+    for keyword, region_list in region_keywords.items():
+        if keyword in text_lower:
+            regions.extend(region_list)
+    
+    return list(set(regions)) if regions else ['Global']
+
+def infer_coordinates(text: str) -> List[float]:
+    """Infer coordinates from article text based on location mentions"""
+    text_lower = text.lower()
+    
+    location_coords = {
+        'suez': [30.0, 32.5],
+        'panama': [9.0, -79.5],
+        'singapore': [1.29, 103.85],
+        'strait of hormuz': [26.5, 56.0],
+        'red sea': [20.0, 38.0],
+        'los angeles': [33.74, -118.25],
+        'hamburg': [53.55, 9.99],
+        'rotterdam': [51.92, 4.48],
+        'shanghai': [31.23, 121.47],
+        'gulf of aden': [14.0, 48.0],
+        'south china sea': [16.0, 112.0],
+        'malacca': [2.2, 102.2],
+        'mediterranean': [35.0, 18.0],
+        'baltic sea': [58.0, 20.0]
+    }
+    
+    for location, coords in location_coords.items():
+        if location in text_lower:
+            return coords
+    
+    return [0.0, 0.0]  # Default global coordinates
+
+def infer_category(search_term: str) -> str:
+    """Infer disruption category from search term"""
+    category_map = {
+        'strike': 'Labor Dispute',
+        'delay': 'Logistics',
+        'canal': 'Infrastructure',
+        'security': 'Security',
+        'weather': 'Weather',
+        'port': 'Port Operations',
+        'vessel': 'Vessel Incident',
+        'collision': 'Accident',
+        'fire': 'Emergency'
+    }
+    
+    search_lower = search_term.lower()
+    for keyword, category in category_map.items():
+        if keyword in search_lower:
+            return category
+    
+    return 'Maritime'
+
+def calculate_confidence(text: str, days_old: int) -> int:
+    """Calculate confidence score based on text content and recency"""
+    base_confidence = 70
+    
+    # Boost confidence for specific maritime terms
+    specific_terms = ['port authority', 'coast guard', 'maritime', 'vessel', 'cargo', 'terminal']
+    text_lower = text.lower()
+    
+    for term in specific_terms:
+        if term in text_lower:
+            base_confidence += 5
+    
+    # Reduce confidence for older articles
+    if days_old > 7:
+        base_confidence -= (days_old - 7) * 2
+    
+    # Cap confidence between 50 and 95
+    return max(50, min(95, base_confidence))
+
+def severity_score(severity: str) -> int:
+    """Convert severity to numeric score for sorting"""
+    scores = {
+        'high': 3,
+        'medium': 2,
+        'low': 1
+    }
+    return scores.get(severity, 1)
+
+def remove_duplicates(disruptions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Remove duplicate disruptions based on title similarity"""
+    unique_disruptions = []
+    seen_titles = set()
+    
+    for disruption in disruptions:
+        title = disruption.get('title', '').lower()
+        # Create a simplified title for comparison
+        simple_title = ''.join(title.split()[:5])  # First 5 words
+        
+        if simple_title not in seen_titles:
+            seen_titles.add(simple_title)
+            unique_disruptions.append(disruption)
+    
+    return unique_disruptions

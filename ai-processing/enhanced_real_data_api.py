@@ -628,40 +628,41 @@ async def get_comprehensive_tariffs(limit: int = 500):
 
 @app.get("/api/maritime-disruptions")
 async def get_comprehensive_disruptions():
-    """Get comprehensive maritime disruption records"""
+    """Get comprehensive maritime disruption records from real-time APIs only"""
     try:
-        # Generate enhanced disruption data
-        disruptions = [
-            {
-                "id": "disruption_001",
-                "title": "Red Sea Shipping Route Disruptions",
-                "description": "Ongoing security concerns affecting major shipping routes through the Red Sea and Suez Canal",
-                "severity": "high",
-                "status": "active",
-                "affected_regions": ["Red Sea", "Suez Canal", "Gulf of Aden"],
-                "coordinates": [20.0, 38.0],
-                "sources": [
-                    {
-                        "name": "Maritime Executive",
-                        "url": "https://maritime-executive.com/red-sea-updates",
-                        "reliability": "high",
-                        "published_date": (datetime.now() - timedelta(hours=6)).isoformat()
-                    }
-                ],
-                "confidence": 92,
+        # Import the real-time disruption fetcher
+        from services.real_time_disruption_fetcher import get_real_time_disruptions
+        
+        logger.info("Fetching real-time maritime disruptions from external APIs...")
+        
+        # Get disruptions from real-time sources
+        disruptions = await get_real_time_disruptions()
+        
+        if not disruptions:
+            logger.warning("No disruptions found from real-time APIs")
+            return {
+                "disruptions": [],
+                "total": 0,
+                "data_source": "Real-time maritime APIs",
+                "status": "No active disruptions found",
                 "last_updated": datetime.now().isoformat()
             }
-        ]
+        
+        logger.info(f"Successfully fetched {len(disruptions)} disruptions from real-time APIs")
         
         return {
             "disruptions": disruptions,
             "total": len(disruptions),
-            "data_source": "Real maritime industry sources",
-            "timestamp": datetime.now().isoformat()
+            "data_source": "Real-time maritime APIs",
+            "last_updated": datetime.now().isoformat()
         }
+        
+    except ImportError as e:
+        logger.error(f"Failed to import real-time disruption fetcher: {e}")
+        raise HTTPException(status_code=500, detail="Real-time disruption service not available")
     except Exception as e:
-        logger.error(f"Error generating disruption data: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate disruption data")
+        logger.error(f"Error fetching real-time disruptions: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch real-time disruption data")
 
 @app.get("/health")
 async def health_check():
