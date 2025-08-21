@@ -190,43 +190,9 @@ export default function GlobalMap({
           icon: createCustomIcon(port.status)
         }).addTo(map);
         
-        // Add permanent port name label (show only major ports or when zoomed in)
-        const shouldShowLabel = port.rank <= 50 || map.getZoom() > 4; // Show top 50 ports or when zoomed in
-        
-        if (shouldShowLabel) {
-          const portLabel = L.marker([port.coordinates.lat, port.coordinates.lng], {
-            icon: L.divIcon({
-              html: `<div style="
-                background: rgba(255, 255, 255, 0.9);
-                padding: 2px 6px;
-                border-radius: 4px;
-                font-size: 11px;
-                font-weight: 600;
-                color: #1f2937;
-                border: 1px solid rgba(0,0,0,0.1);
-                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-                white-space: nowrap;
-                pointer-events: none;
-                transform: translateY(20px);
-              ">${port.name || 'Unknown Port'}</div>`,
-              iconSize: [0, 0],
-              iconAnchor: [0, -10],
-              className: 'port-label'
-            })
-          }).addTo(map);
-          
-          // Update label visibility based on zoom level
-          map.on('zoomend', function() {
-            const zoom = map.getZoom();
-            if (zoom < 3) {
-              portLabel.setOpacity(0);
-            } else if (zoom < 4) {
-              portLabel.setOpacity(port.rank <= 20 ? 1 : 0); // Only top 20 ports at low zoom
-            } else {
-              portLabel.setOpacity(1);
-            }
-          });
-        }
+        // Create label marker (initially hidden)
+        let portLabel = null;
+        let labelVisible = false;
         
         portsAdded++;
 

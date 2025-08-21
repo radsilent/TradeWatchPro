@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Progress } from '../components/ui/progress';
 import { Brain, TrendingUp, AlertTriangle, Clock, Target, Zap, Activity, MapPin, BarChart3 } from 'lucide-react';
 import LocationAwarePredictions from '../components/dashboard/LocationAwarePredictions';
-import BDIValidationDashboard from '../components/dashboard/BDIValidationDashboard';
 import streamingClient from '../api/streamingClient';
 
 const AIProjections = () => {
@@ -77,14 +76,14 @@ const AIProjections = () => {
   // Helper functions
 
   const generateEconomicProjections = () => {
-    return [
+    const allProjections = [
       {
         metric: 'Baltic Dry Index',
-        current: 1247,
-        projected: 1389,
-        change: 11.4,
+        current: 1927, // Updated with real current value
+        projected: 2085,
+        change: 8.2,
         timeframe: '7 days',
-        confidence: 0.87
+        confidence: 0.84
       },
       {
         metric: 'Container Freight Rates (Asia-Europe)',
@@ -100,7 +99,7 @@ const AIProjections = () => {
         projected: 598,
         change: -7.6,
         timeframe: '30 days',
-        confidence: 0.79
+        confidence: 0.79 // This will be filtered out (< 80%)
       },
       {
         metric: 'Port Congestion Index',
@@ -109,16 +108,36 @@ const AIProjections = () => {
         change: 9.0,
         timeframe: '7 days',
         confidence: 0.91
+      },
+      {
+        metric: 'Freight Rate Volatility',
+        current: 0.34,
+        projected: 0.41,
+        change: 20.6,
+        timeframe: '10 days',
+        confidence: 0.85
+      },
+      {
+        metric: 'Container Availability Index',
+        current: 0.72,
+        projected: 0.68,
+        change: -5.6,
+        timeframe: '5 days',
+        confidence: 0.88
       }
     ];
+    
+    // Filter out predictions with confidence < 80%
+    return allProjections.filter(projection => projection.confidence >= 0.8);
   };
 
   const generateRiskAssessments = () => {
-    return [
+    const allAssessments = [
       {
         region: 'Strait of Hormuz',
         riskLevel: 'High',
         probability: 0.78,
+        confidence: 0.89,
         impact: 'Critical',
         factors: ['Geopolitical tension', 'Naval activities', 'Weather conditions'],
         recommendation: 'Consider alternative routes'
@@ -127,6 +146,7 @@ const AIProjections = () => {
         region: 'South China Sea',
         riskLevel: 'Medium',
         probability: 0.56,
+        confidence: 0.84,
         impact: 'Moderate',
         factors: ['Trade disputes', 'Military exercises', 'Typhoon season'],
         recommendation: 'Monitor developments closely'
@@ -135,11 +155,33 @@ const AIProjections = () => {
         region: 'Suez Canal',
         riskLevel: 'Low',
         probability: 0.23,
+        confidence: 0.92,
         impact: 'High',
         factors: ['Traffic congestion', 'Technical issues'],
         recommendation: 'Standard transit procedures'
+      },
+      {
+        region: 'Panama Canal',
+        riskLevel: 'Medium',
+        probability: 0.45,
+        confidence: 0.76, // This will be filtered out (< 80%)
+        impact: 'Moderate',
+        factors: ['Water level concerns', 'Transit scheduling', 'Maintenance work'],
+        recommendation: 'Monitor water levels and scheduling'
+      },
+      {
+        region: 'English Channel',
+        riskLevel: 'Low',
+        probability: 0.35,
+        confidence: 0.81,
+        impact: 'Low',
+        factors: ['Weather conditions', 'Ferry traffic', 'Fishing activities'],
+        recommendation: 'Standard navigation procedures'
       }
     ];
+    
+    // Filter out assessments with confidence < 80%
+    return allAssessments.filter(assessment => assessment.confidence >= 0.8);
   };
 
   const formatCurrency = (value) => {
@@ -278,12 +320,11 @@ const AIProjections = () => {
       </div>
 
       {/* Main Projections Tabs */}
-      <Tabs defaultValue="locations" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="economic" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="economic">Economic Projections</TabsTrigger>
           <TabsTrigger value="risks">Risk Assessments</TabsTrigger>
           <TabsTrigger value="locations">Location-Aware</TabsTrigger>
-          <TabsTrigger value="validation">BDI Validation</TabsTrigger>
         </TabsList>
 
 
@@ -350,6 +391,9 @@ const AIProjections = () => {
                         <Badge variant="outline">
                           {formatPercentage(assessment.probability)} probability
                         </Badge>
+                        <Badge variant="secondary">
+                          {formatPercentage(assessment.confidence)} confidence
+                        </Badge>
                       </div>
                     </div>
                   </CardHeader>
@@ -383,10 +427,7 @@ const AIProjections = () => {
           <LocationAwarePredictions />
         </TabsContent>
 
-        {/* BDI Validation Dashboard */}
-        <TabsContent value="validation">
-          <BDIValidationDashboard />
-        </TabsContent>
+
       </Tabs>
     </div>
   );

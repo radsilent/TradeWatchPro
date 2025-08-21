@@ -137,16 +137,19 @@ const LocationAwarePredictions = () => {
       }
     ];
 
-    return majorPorts.map(port => ({
+    const allPredictions = majorPorts.map(port => ({
       ...port,
       predictionId: `PORT_${port.port.replace(/\s+/g, '_').toUpperCase()}_${Date.now()}`,
-      confidence: Math.random() * 0.2 + 0.8, // 80-100%
+      confidence: Math.random() * 0.25 + 0.75, // 75-100% (some will be filtered)
       alternativePorts: majorPorts
         .filter(p => p.region === port.region && p.port !== port.port)
         .slice(0, 2)
         .map(p => ({ name: p.port, distanceKm: Math.floor(Math.random() * 500 + 100) })),
       timestamp: new Date()
     }));
+    
+    // Filter out predictions with confidence < 80%
+    return allPredictions.filter(prediction => prediction.confidence >= 0.8);
   };
 
   // Generate fuel index predictions with locations
@@ -214,10 +217,10 @@ const LocationAwarePredictions = () => {
       }
     ];
 
-    return fuelHubs.map(hub => ({
+    const allPredictions = fuelHubs.map(hub => ({
       ...hub,
       predictionId: `FUEL_${hub.hub.replace(/\s+/g, '_').toUpperCase()}_${Date.now()}`,
-      confidence: Math.random() * 0.15 + 0.8, // 80-95%
+      confidence: Math.random() * 0.2 + 0.75, // 75-95% (some will be filtered)
       regionalDifferential: {
         "Southeast Asia": (Math.random() - 0.5) * 6,
         "North Europe": (Math.random() - 0.5) * 8,
@@ -234,6 +237,9 @@ const LocationAwarePredictions = () => {
         })),
       timestamp: new Date()
     }));
+    
+    // Filter out predictions with confidence < 80%
+    return allPredictions.filter(prediction => prediction.confidence >= 0.8);
   };
 
   // Generate route performance predictions with geographic segments
@@ -297,15 +303,18 @@ const LocationAwarePredictions = () => {
       }
     ];
 
-    return shippingRoutes.map(route => ({
+    const allPredictions = shippingRoutes.map(route => ({
       ...route,
       predictionId: `ROUTE_${route.route.replace(/\s+/g, '_')}_${route.segment.replace(/\s+/g, '_')}_${Date.now()}`,
-      confidence: Math.random() * 0.2 + 0.75, // 75-95%
+      confidence: Math.random() * 0.25 + 0.7, // 70-95% (some will be filtered)
       alternativeRoute: route.segment === "Suez Canal" ? "Cape of Good Hope" : 
                        route.segment === "Malacca Strait" ? "Sunda Strait" : "None available",
       seasonalFactor: Math.random() > 0.5 ? "peak_season" : "normal_season",
       timestamp: new Date()
     }));
+    
+    // Filter out predictions with confidence < 80%
+    return allPredictions.filter(prediction => prediction.confidence >= 0.8);
   };
 
   // Filter predictions by region
