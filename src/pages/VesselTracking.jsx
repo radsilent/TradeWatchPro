@@ -26,6 +26,31 @@ import {
 
 // Key Vessel Tracking Page - UPDATED FOR REAL API DATA
 export default function VesselTracking() {
+  // Inject CSS to ensure dropdowns appear above Leaflet map
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      /* Ensure select dropdowns appear above Leaflet map */
+      [data-radix-select-content] {
+        z-index: 10000 !important;
+      }
+      
+      /* Leaflet map z-index fix */
+      .leaflet-container {
+        z-index: 1 !important;
+      }
+      
+      /* Leaflet controls should still be accessible */
+      .leaflet-control-container {
+        z-index: 1000 !important;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
   const [vessels, setVessels] = useState([]);
   const [filteredVessels, setFilteredVessels] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -740,7 +765,7 @@ export default function VesselTracking() {
       </div>
 
       {/* Search and Filters */}
-      <Card>
+      <Card className="relative z-50">
         <CardContent className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
             <div className="relative">
@@ -754,10 +779,10 @@ export default function VesselTracking() {
             </div>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="relative z-50">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="relative z-[9999]">
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="underway">Underway</SelectItem>
                 <SelectItem value="delayed">Delayed</SelectItem>
@@ -770,10 +795,10 @@ export default function VesselTracking() {
             </Select>
 
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="relative z-50">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="relative z-[9999]">
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="ultra large container">Ultra Large Container</SelectItem>
                 <SelectItem value="large container">Large Container</SelectItem>
@@ -783,10 +808,10 @@ export default function VesselTracking() {
             </Select>
 
             <Select value={impactFilter} onValueChange={setImpactFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="relative z-50">
                 <SelectValue placeholder="All Vessels" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="relative z-[9999]">
                 <SelectItem value="all">All Vessels</SelectItem>
                 <SelectItem value="impacted">Impacted Only</SelectItem>
                 <SelectItem value="normal">Normal Only</SelectItem>
@@ -794,10 +819,10 @@ export default function VesselTracking() {
             </Select>
 
             <Select value={originCountryFilter} onValueChange={setOriginCountryFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="relative z-50">
                 <SelectValue placeholder="All Countries" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="relative z-[9999]">
                 <SelectItem value="all">All Countries</SelectItem>
                 {getUniqueCountries().map(country => (
                   <SelectItem key={country} value={country}>
@@ -808,10 +833,10 @@ export default function VesselTracking() {
             </Select>
 
             <Select value={destinationFilter} onValueChange={setDestinationFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="relative z-50">
                 <SelectValue placeholder="All Destinations" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="relative z-[9999]">
                 <SelectItem value="all">All Destinations</SelectItem>
                 {getUniqueDestinations().map(destination => (
                   <SelectItem key={destination} value={destination}>
@@ -856,7 +881,8 @@ export default function VesselTracking() {
                 ref={mapRef} 
                 id="vessel-tracking-map"
                 style={{ 
-                  height: '500px', 
+                  height: '500px',
+                  zIndex: 1, 
                   borderRadius: '8px', 
                   border: '1px solid #e5e7eb',
                   backgroundColor: '#f9fafb'

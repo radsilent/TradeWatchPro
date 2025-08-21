@@ -157,18 +157,81 @@ class RealAISIntegration:
             }
         ]
         
-        # Major ports for realistic destinations
+        # Major ports for realistic destinations - Global coverage
         self.major_ports = [
+            # Asia-Pacific
             {"name": "Shanghai", "coords": (31.2304, 121.4737), "country": "China"},
             {"name": "Singapore", "coords": (1.2921, 103.8519), "country": "Singapore"},
-            {"name": "Rotterdam", "coords": (51.9244, 4.4777), "country": "Netherlands"},
-            {"name": "Los Angeles", "coords": (33.7406, -118.2484), "country": "United States"},
-            {"name": "Hamburg", "coords": (53.5511, 9.9937), "country": "Germany"},
             {"name": "Hong Kong", "coords": (22.3193, 114.1694), "country": "Hong Kong"},
             {"name": "Busan", "coords": (35.1796, 129.0756), "country": "South Korea"},
+            {"name": "Tokyo", "coords": (35.6762, 139.6503), "country": "Japan"},
+            {"name": "Yokohama", "coords": (35.4437, 139.6380), "country": "Japan"},
+            {"name": "Kobe", "coords": (34.6901, 135.1956), "country": "Japan"},
+            {"name": "Mumbai", "coords": (19.0760, 72.8777), "country": "India"},
+            {"name": "Chennai", "coords": (13.0827, 80.2707), "country": "India"},
+            {"name": "Colombo", "coords": (6.9271, 79.8612), "country": "Sri Lanka"},
+            {"name": "Manila", "coords": (14.5995, 120.9842), "country": "Philippines"},
+            {"name": "Bangkok", "coords": (13.7563, 100.5018), "country": "Thailand"},
+            {"name": "Ho Chi Minh City", "coords": (10.8231, 106.6297), "country": "Vietnam"},
+            {"name": "Jakarta", "coords": (-6.2088, 106.8456), "country": "Indonesia"},
+            {"name": "Sydney", "coords": (-33.8688, 151.2093), "country": "Australia"},
+            {"name": "Melbourne", "coords": (-37.8136, 144.9631), "country": "Australia"},
+            {"name": "Auckland", "coords": (-36.8485, 174.7633), "country": "New Zealand"},
+            
+            # Europe
+            {"name": "Rotterdam", "coords": (51.9244, 4.4777), "country": "Netherlands"},
+            {"name": "Hamburg", "coords": (53.5511, 9.9937), "country": "Germany"},
+            {"name": "Antwerp", "coords": (51.2194, 4.4025), "country": "Belgium"},
+            {"name": "Bremen", "coords": (53.0793, 8.8017), "country": "Germany"},
+            {"name": "Felixstowe", "coords": (51.9542, 1.3528), "country": "United Kingdom"},
+            {"name": "Southampton", "coords": (50.9097, -1.4044), "country": "United Kingdom"},
+            {"name": "Le Havre", "coords": (49.4944, 0.1079), "country": "France"},
+            {"name": "Marseille", "coords": (43.2965, 5.3698), "country": "France"},
+            {"name": "Barcelona", "coords": (41.3851, 2.1734), "country": "Spain"},
+            {"name": "Valencia", "coords": (39.4699, -0.3763), "country": "Spain"},
+            {"name": "Genoa", "coords": (44.4056, 8.9463), "country": "Italy"},
+            {"name": "Naples", "coords": (40.8518, 14.2681), "country": "Italy"},
+            {"name": "Piraeus", "coords": (37.9474, 23.6362), "country": "Greece"},
+            {"name": "Istanbul", "coords": (41.0082, 28.9784), "country": "Turkey"},
+            {"name": "Gothenburg", "coords": (57.7089, 11.9746), "country": "Sweden"},
+            {"name": "Stockholm", "coords": (59.3293, 18.0686), "country": "Sweden"},
+            {"name": "Oslo", "coords": (59.9139, 10.7522), "country": "Norway"},
+            {"name": "Copenhagen", "coords": (55.6761, 12.5683), "country": "Denmark"},
+            {"name": "Gdansk", "coords": (54.3520, 18.6466), "country": "Poland"},
+            {"name": "St. Petersburg", "coords": (59.9311, 30.3609), "country": "Russia"},
+            
+            # Middle East & Africa
             {"name": "Dubai", "coords": (25.2048, 55.2708), "country": "UAE"},
+            {"name": "Abu Dhabi", "coords": (24.4539, 54.3773), "country": "UAE"},
+            {"name": "Doha", "coords": (25.2854, 51.5310), "country": "Qatar"},
+            {"name": "Kuwait City", "coords": (29.3117, 47.4818), "country": "Kuwait"},
+            {"name": "Jeddah", "coords": (21.4858, 39.1925), "country": "Saudi Arabia"},
+            {"name": "Port Said", "coords": (31.2653, 32.3019), "country": "Egypt"},
+            {"name": "Alexandria", "coords": (31.2001, 29.9187), "country": "Egypt"},
+            {"name": "Casablanca", "coords": (33.5731, -7.5898), "country": "Morocco"},
+            {"name": "Lagos", "coords": (6.5244, 3.3792), "country": "Nigeria"},
+            {"name": "Durban", "coords": (-29.8587, 31.0218), "country": "South Africa"},
+            {"name": "Cape Town", "coords": (-33.9249, 18.4241), "country": "South Africa"},
+            
+            # Americas
+            {"name": "Los Angeles", "coords": (33.7406, -118.2484), "country": "United States"},
+            {"name": "Long Beach", "coords": (33.7701, -118.1937), "country": "United States"},
             {"name": "New York", "coords": (40.6892, -74.0445), "country": "United States"},
-            {"name": "Antwerp", "coords": (51.2194, 4.4025), "country": "Belgium"}
+            {"name": "Norfolk", "coords": (36.8468, -76.2852), "country": "United States"},
+            {"name": "Charleston", "coords": (32.7767, -79.9311), "country": "United States"},
+            {"name": "Miami", "coords": (25.7617, -80.1918), "country": "United States"},
+            {"name": "Houston", "coords": (29.7604, -95.3698), "country": "United States"},
+            {"name": "Seattle", "coords": (47.6062, -122.3321), "country": "United States"},
+            {"name": "Vancouver", "coords": (49.2827, -123.1207), "country": "Canada"},
+            {"name": "Montreal", "coords": (45.5017, -73.5673), "country": "Canada"},
+            {"name": "Santos", "coords": (-23.9608, -46.3336), "country": "Brazil"},
+            {"name": "Rio de Janeiro", "coords": (-22.9068, -43.1729), "country": "Brazil"},
+            {"name": "Buenos Aires", "coords": (-34.6118, -58.3960), "country": "Argentina"},
+            {"name": "Valparaiso", "coords": (-33.0472, -71.6127), "country": "Chile"},
+            {"name": "Lima", "coords": (-12.0464, -77.0428), "country": "Peru"},
+            {"name": "Panama City", "coords": (8.9824, -79.5199), "country": "Panama"},
+            {"name": "Veracruz", "coords": (19.1738, -96.1342), "country": "Mexico"},
+            {"name": "Cartagena", "coords": (10.3910, -75.4794), "country": "Colombia"}
         ]
 
     async def __aenter__(self):
