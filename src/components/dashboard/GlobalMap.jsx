@@ -190,6 +190,44 @@ export default function GlobalMap({
           icon: createCustomIcon(port.status)
         }).addTo(map);
         
+        // Add permanent port name label (show only major ports or when zoomed in)
+        const shouldShowLabel = port.rank <= 50 || map.getZoom() > 4; // Show top 50 ports or when zoomed in
+        
+        if (shouldShowLabel) {
+          const portLabel = L.marker([port.coordinates.lat, port.coordinates.lng], {
+            icon: L.divIcon({
+              html: `<div style="
+                background: rgba(255, 255, 255, 0.9);
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: 600;
+                color: #1f2937;
+                border: 1px solid rgba(0,0,0,0.1);
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                white-space: nowrap;
+                pointer-events: none;
+                transform: translateY(20px);
+              ">${port.name || 'Unknown Port'}</div>`,
+              iconSize: [0, 0],
+              iconAnchor: [0, -10],
+              className: 'port-label'
+            })
+          }).addTo(map);
+          
+          // Update label visibility based on zoom level
+          map.on('zoomend', function() {
+            const zoom = map.getZoom();
+            if (zoom < 3) {
+              portLabel.setOpacity(0);
+            } else if (zoom < 4) {
+              portLabel.setOpacity(port.rank <= 20 ? 1 : 0); // Only top 20 ports at low zoom
+            } else {
+              portLabel.setOpacity(1);
+            }
+          });
+        }
+        
         portsAdded++;
 
         const popupContent = document.createElement('div');
@@ -300,7 +338,7 @@ export default function GlobalMap({
                 ${port.disruption_level ? `
                   <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
                     Risk: ${port.disruption_level.charAt(0).toUpperCase() + port.disruption_level.slice(1)}
-                  </span>
+            </span>
                 ` : ''}
               </div>
             </div>
@@ -670,6 +708,28 @@ export default function GlobalMap({
           
           .leaflet-popup-close-button:hover {
             color: #374151 !important;
+          }
+          
+          .port-label {
+            background: transparent !important;
+            border: none !important;
+            z-index: 600;
+          }
+          
+          .port-label div {
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            min-width: max-content;
+          }
+          
+          /* Hide labels at very low zoom levels to avoid clutter */
+          .leaflet-zoom-anim .port-label {
+            transition: opacity 0.2s ease;
+          }
+          
+          @media (max-width: 768px) {
+            .port-label {
+              font-size: 10px !important;
+            }
           }
         `}</style>
       </div>
