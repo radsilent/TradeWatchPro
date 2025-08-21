@@ -15,6 +15,7 @@ export default function GlobalMap({
 }) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   console.log('GlobalMap component rendered with:', { 
     portsLength: ports.length, 
@@ -27,7 +28,19 @@ export default function GlobalMap({
     const timer = setTimeout(() => {
       setMapLoaded(true);
     }, 1000);
-    return () => clearTimeout(timer);
+
+    // Mobile detection
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
   if (isLoading) {
@@ -71,12 +84,22 @@ export default function GlobalMap({
 
           if (!mapRef.current) return;
 
-          // Create map
+          // Create map with mobile-optimized settings
           const map = Leaflet.map(mapRef.current, {
             center: center,
-            zoom: zoom,
-            zoomControl: true,
-            attributionControl: true
+            zoom: isMobile ? Math.max(1, zoom - 1) : zoom, // Slightly zoomed out on mobile
+            zoomControl: !isMobile, // Remove zoom control on mobile to save space
+            attributionControl: !isMobile, // Remove attribution on mobile to save space
+            tap: true, // Enable touch interactions
+            tapTolerance: 15, // Increase tap tolerance for touch
+            touchZoom: true,
+            scrollWheelZoom: !isMobile, // Disable scroll zoom on mobile to prevent accidental zooming
+            doubleClickZoom: true,
+            boxZoom: !isMobile, // Disable box zoom on mobile
+            keyboard: !isMobile, // Disable keyboard navigation on mobile
+            dragging: true,
+            maxZoom: isMobile ? 10 : 18, // Limit zoom on mobile for performance
+            minZoom: isMobile ? 1 : 2
           });
 
           // Add tile layer
@@ -599,16 +622,16 @@ export default function GlobalMap({
     <div className="relative w-full h-full">
       <MapComponent />
       
-      {/* Map Legend */}
-      <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-lg shadow-lg p-4 max-w-xs z-[1000]">
-        <h3 className="font-semibold text-slate-900 mb-3 flex items-center">
-          <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              {/* Map Legend */}
+        <div className={`absolute ${isMobile ? 'top-2 right-2 max-w-[200px]' : 'top-4 right-4 max-w-xs'} bg-white/95 backdrop-blur-sm border border-slate-200 rounded-lg shadow-lg ${isMobile ? 'p-2' : 'p-4'} z-[1000]`}>
+        <h3 className={`font-semibold text-slate-900 ${isMobile ? 'mb-2 text-sm' : 'mb-3'} flex items-center`}>
+          <svg className={`${isMobile ? 'w-3 h-3 mr-1' : 'w-4 h-4 mr-2'}`} fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
           </svg>
-          Map Legend
+          {isMobile ? 'Legend' : 'Map Legend'}
         </h3>
         
-        <div className="space-y-2 text-sm">
+        <div className={`space-y-1 ${isMobile ? 'text-xs' : 'text-sm'}`}>
           {/* Ports */}
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-blue-500 rounded-full border border-white shadow-sm"></div>

@@ -10,13 +10,23 @@ import { Ship, TrendingUp, Globe, MapPin, Activity, AlertTriangle } from "lucide
 export default function TradeRoutesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTimeframe, setSelectedTimeframe] = useState('1year');
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     // Simulate loading
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 1000);
-    return () => clearTimeout(timer);
+    
+    // Mobile detection
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
   // Trade route performance data
@@ -213,7 +223,41 @@ export default function TradeRoutesPage() {
                 <CardTitle className="text-slate-100">Detailed Route Performance</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
+                {isMobile ? (
+                  /* Mobile Card Layout */
+                  <div className="space-y-4">
+                    {routePerformance.map((route, index) => (
+                      <div key={index} className="bg-slate-700/30 rounded-lg p-4 border border-slate-600/30">
+                        <div className="flex justify-between items-start mb-3">
+                          <h4 className="text-slate-100 font-medium text-sm">{route.name}</h4>
+                          <Badge className={route.efficiency >= 85 ? 'bg-green-500' : route.efficiency >= 75 ? 'bg-yellow-500' : 'bg-red-500'}>
+                            {route.efficiency >= 85 ? 'Optimal' : route.efficiency >= 75 ? 'Good' : 'Needs Attention'}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <span className="text-slate-400">Volume:</span>
+                            <span className="text-slate-300 ml-1">{route.volume}M TEU</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Efficiency:</span>
+                            <span className="text-slate-300 ml-1">{route.efficiency}%</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Delays:</span>
+                            <span className="text-slate-300 ml-1">{route.delays} days</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Value:</span>
+                            <span className="text-slate-300 ml-1">${route.cost}B</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* Desktop Table Layout */
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-700">
@@ -251,6 +295,7 @@ export default function TradeRoutesPage() {
                     </tbody>
                   </table>
                 </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

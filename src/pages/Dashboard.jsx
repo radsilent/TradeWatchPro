@@ -53,9 +53,20 @@ export default function Dashboard() {
   const [mapZoom, setMapZoom] = useState(2);
   const [dateConfig, setDateConfig] = useState({ min: null, max: null });
   const [selectedDateRange, setSelectedDateRange] = useState([null, null]);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
+    
+    // Mobile detection
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const filteredDisruptions = useMemo(() => {
@@ -107,10 +118,13 @@ export default function Dashboard() {
       // Skip cache clearing for faster loading
       console.log('Loading with cached data for better performance');
       
+      // Reduce data on mobile for better performance
+      const dataLimits = isMobile ? { ports: 50, disruptions: 20, tariffs: 25 } : { ports: 200, disruptions: 100, tariffs: 100 };
+      
       const [portsData, disruptionsData, tariffsData] = await Promise.all([
-        Port.list('-strategic_importance', 200), // Plot all top 200 ports as requested
-        Disruption.list('-created_date', 20), // Keep disruptions low for performance
-        Tariff.list('-trade_value', 30) // Load top 30 tariffs for map visualization
+        Port.list('-strategic_importance', dataLimits.ports), // Reduced on mobile
+        Disruption.list('-created_date', dataLimits.disruptions), // Reduced on mobile
+        Tariff.list('-trade_value', dataLimits.tariffs) // Reduced on mobile
       ]);
       
       console.log('Ports loaded:', portsData.length);
@@ -153,7 +167,7 @@ export default function Dashboard() {
       console.error("Error loading dashboard data:", error);
     }
     setIsLoading(false);
-  }, []);
+  }, [isMobile]); // Include isMobile to reload data when device type changes
 
   const generateRecentDisruptionData = async () => {
     try {
@@ -337,9 +351,9 @@ export default function Dashboard() {
         </div>
       )}
       
-      <div className="flex-1 grid grid-cols-1 xl:grid-cols-4 gap-6 p-6">
+      <div className={`flex-1 grid grid-cols-1 ${isMobile ? '' : 'xl:grid-cols-4'} gap-4 ${isMobile ? 'p-3' : 'p-6'}`}>
         {/* Main content area */}
-        <div className="xl:col-span-3 space-y-6">
+        <div className={`${isMobile ? '' : 'xl:col-span-3'} space-y-4`}>
           {/* Metrics Panel */}
           <MetricsPanel 
             ports={ports} 
@@ -348,7 +362,7 @@ export default function Dashboard() {
           />
 
           {/* Global Map - Main content taking most of the space */}
-          <div className="relative h-[70vh] lg:h-[80vh]">
+          <div className={`relative ${isMobile ? 'h-[50vh]' : 'h-[70vh] lg:h-[80vh]'}`}>
             <GlobalMap
               ports={ports}
               disruptions={filteredDisruptions}
@@ -373,7 +387,7 @@ export default function Dashboard() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className={`space-y-4 ${isMobile ? 'order-first' : ''}`}>
           <ActiveAlerts
             disruptions={getCriticalDisruptions}
             onGenerateAlerts={generateRealTimeAlerts}

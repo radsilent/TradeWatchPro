@@ -66,6 +66,35 @@ const navigationItems = [
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
+  
+  // Mobile detection and responsive state
+  const [isMobile, setIsMobile] = React.useState(false);
+  const [isTablet, setIsTablet] = React.useState(false);
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkDevice = () => {
+      const width = window.innerWidth;
+      const isMobileDevice = width < 768;
+      const isTabletDevice = width >= 768 && width < 1024;
+      
+      setIsMobile(isMobileDevice);
+      setIsTablet(isTabletDevice);
+      
+      // Auto-close sidebar on mobile
+      if (isMobileDevice) {
+        setSidebarOpen(false);
+      }
+    };
+
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
 
   return (
     <SidebarProvider>
@@ -95,6 +124,26 @@ export default function Layout({ children, currentPageName }) {
             color: var(--slate-100);
           }
           
+          /* Responsive Typography */
+          @media (max-width: 768px) {
+            h1 { font-size: 1.5rem; line-height: 1.4; }
+            h2 { font-size: 1.25rem; line-height: 1.4; }
+            h3 { font-size: 1.125rem; line-height: 1.4; }
+            h4 { font-size: 1rem; line-height: 1.4; }
+            p { font-size: 0.875rem; line-height: 1.5; }
+            .text-sm { font-size: 0.75rem; }
+            .text-xs { font-size: 0.6875rem; }
+            
+            /* Touch targets */
+            button, .clickable { min-height: 44px; min-width: 44px; }
+            input, select, textarea { min-height: 44px; font-size: 16px; } /* Prevent zoom on iOS */
+          }
+          
+          /* Better touch scrolling */
+          * {
+            -webkit-overflow-scrolling: touch;
+          }
+          
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
           
           * {
@@ -107,8 +156,42 @@ export default function Layout({ children, currentPageName }) {
           }
         `}
       </style>
-      <div className="min-h-screen flex w-full bg-slate-900">
-        <Sidebar className="border-r border-slate-700/50 bg-slate-900/95 backdrop-blur-sm">
+      
+      {/* Mobile Header */}
+      {isMobile && (
+        <div className="fixed top-0 left-0 right-0 z-[9998] bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50">
+          <div className="flex items-center justify-between px-4 py-3">
+            <button
+              onClick={toggleSidebar}
+              className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div className="flex items-center gap-2">
+              <VectorStreamLogo className="h-5 w-5" textClassName="text-xs font-bold" />
+              <span className="text-white font-semibold text-sm">TradeWatch</span>
+            </div>
+            <div className="w-10" /> {/* Spacer for balance */}
+          </div>
+        </div>
+      )}
+      
+      <div className={`min-h-screen flex w-full bg-slate-900 ${isMobile ? 'pt-16' : ''}`}>
+        {/* Mobile Sidebar Overlay */}
+        {isMobile && sidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-[9997]" 
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+        
+        <Sidebar className={`border-r border-slate-700/50 bg-slate-900/95 backdrop-blur-sm transition-transform duration-300 ${
+          isMobile 
+            ? `fixed left-0 top-16 bottom-0 z-[9999] w-64 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
+            : 'relative'
+        }`}>
           <SidebarHeader className="border-b border-slate-700/50 p-6">
             <div className="flex flex-col gap-4">
               <VectorStreamLogo 
@@ -142,7 +225,15 @@ export default function Layout({ children, currentPageName }) {
                           location.pathname === item.url ? 'bg-slate-800/80 text-slate-100 shadow-sm' : 'text-slate-300'
                         } ${item.title === 'Live AIS Feed' ? 'opacity-60' : ''}`}
                       >
-                        <Link to={item.url} className="flex items-center gap-3 px-4 py-3">
+                        <Link 
+                          to={item.url} 
+                          className="flex items-center gap-3 px-4 py-3"
+                          onClick={() => {
+                            if (isMobile) {
+                              setSidebarOpen(false);
+                            }
+                          }}
+                        >
                           <item.icon className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
                           <span className="font-medium tracking-tight">{item.title}</span>
                           {item.title === 'Live AIS Feed' && <Badge variant="secondary" className="text-xs bg-slate-700 text-slate-300">Soon</Badge>}
@@ -199,23 +290,19 @@ export default function Layout({ children, currentPageName }) {
         </Sidebar>
 
         <main className="flex-1 flex flex-col min-h-screen">
-          <header className="bg-slate-900/50 backdrop-blur-sm border-b border-slate-700/50 px-6 py-4 lg:hidden">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger className="hover:bg-slate-800 p-2 rounded-lg transition-colors duration-200" />
-              <VectorStreamLogo className="h-6 w-6" textClassName="text-lg font-bold" />
-            </div>
-          </header>
-
-          <div className="flex-1 bg-slate-900">
+          <div className={`flex-1 bg-slate-900 ${isMobile ? 'px-3 py-2 pb-20' : 'px-6 py-4'}`}>
             {children}
           </div>
           
           {/* Main Footer with Copyright */}
-          <footer className="bg-slate-900/80 border-t border-slate-700/30 px-6 py-4">
+          {!isMobile && (
+            <footer className="bg-slate-900/80 border-t border-slate-700/30 px-6 py-4">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <VectorStreamLogo className="h-4 w-4" />
-                <span className="text-sm text-slate-400">TradeWatch - Global Trade Intelligence Platform</span>
+                <span className={`text-slate-400 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                  {isMobile ? 'TradeWatch' : 'TradeWatch - Global Trade Intelligence Platform'}
+                </span>
               </div>
               <div className="flex items-center gap-6 text-xs text-slate-500">
                 <span>© 2025 VectorStream Systems</span>
@@ -224,7 +311,30 @@ export default function Layout({ children, currentPageName }) {
               </div>
             </div>
           </footer>
+          )}
         </main>
+        
+        {/* Mobile Bottom Navigation */}
+        {isMobile && (
+          <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-sm border-t border-slate-700/50 z-[9998]">
+            <div className="flex justify-around items-center py-2">
+              {navigationItems.slice(0, 5).map((item) => (
+                <Link
+                  key={item.title}
+                  to={item.url}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
+                    location.pathname === item.url 
+                      ? 'text-blue-400 bg-slate-800/60' 
+                      : 'text-slate-400 hover:text-slate-300'
+                  }`}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="text-xs font-medium">{item.title.split(' ')[0]}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </SidebarProvider>
   );
