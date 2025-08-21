@@ -190,9 +190,35 @@ export default function GlobalMap({
           icon: createCustomIcon(port.status)
         }).addTo(map);
         
-        // Create label marker (initially hidden)
+        // Create label marker for port name (initially hidden)
         let portLabel = null;
         let labelVisible = false;
+        
+        const createPortLabel = () => {
+          if (!portLabel) {
+            portLabel = L.marker([port.coordinates.lat, port.coordinates.lng], {
+              icon: L.divIcon({
+                html: `<div style="
+                  background: rgba(30, 41, 59, 0.95);
+                  color: white;
+                  padding: 4px 8px;
+                  border-radius: 6px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  white-space: nowrap;
+                  pointer-events: none;
+                  transform: translateY(-35px);
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                  border: 1px solid rgba(255,255,255,0.2);
+                ">${port.name || 'Unknown Port'}</div>`,
+                iconSize: [0, 0],
+                iconAnchor: [0, 0],
+                className: 'port-name-label'
+              })
+            });
+          }
+          return portLabel;
+        };
         
         portsAdded++;
 
@@ -331,9 +357,30 @@ export default function GlobalMap({
           className: 'port-popup'
         });
         
-        // Ensure popup opens on click
+        // Handle marker click - show popup and toggle port name label
         marker.on('click', function(e) {
           this.openPopup();
+          
+          // Toggle port name label
+          if (!labelVisible) {
+            const label = createPortLabel();
+            label.addTo(map);
+            labelVisible = true;
+            
+            // Auto-hide label after 5 seconds
+            setTimeout(() => {
+              if (labelVisible && portLabel) {
+                map.removeLayer(portLabel);
+                labelVisible = false;
+              }
+            }, 5000);
+          } else {
+            if (portLabel) {
+              map.removeLayer(portLabel);
+              labelVisible = false;
+            }
+          }
+          
           if (onPortClick) onPortClick(port);
         });
       });
@@ -674,6 +721,29 @@ export default function GlobalMap({
           
           .leaflet-popup-close-button:hover {
             color: #374151 !important;
+          }
+          
+          .port-name-label {
+            background: transparent !important;
+            border: none !important;
+            z-index: 1000;
+            pointer-events: none;
+          }
+          
+          .port-name-label div {
+            animation: fadeInUp 0.3s ease-out;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+          }
+          
+          @keyframes fadeInUp {
+            from {
+              opacity: 0;
+              transform: translateY(-25px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(-35px);
+            }
           }
           
           .port-label {
