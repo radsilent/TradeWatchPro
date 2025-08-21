@@ -2934,15 +2934,32 @@ function generateVesselImpactTariffs() {
 }
 
 // Main function to fetch all real-time tariff data
-export async function fetchRealTimeTariffData() {
-  const cacheKey = 'realtime_tariff_data';
+export async function fetchRealTimeTariffData(limit = 500) {
+  const cacheKey = `realtime_tariff_data_${limit}`;
   const cached = getCachedData(cacheKey);
   if (cached) {
-    console.log('Returning cached tariff data');
+    console.log(`Returning ${cached.length} cached tariff records`);
     return cached;
   }
   
-  console.log('Fetching real-time tariff data from live government APIs...');
+  console.log(`Fetching real-time tariff data (limit: ${limit}) from comprehensive APIs...`);
+  
+  // Try to fetch from our Python API server first
+  try {
+    const response = await fetch(`http://localhost:8001/api/tariffs?limit=${limit}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.tariffs && data.tariffs.length > 0) {
+        console.log(`✅ Fetched ${data.tariffs.length} comprehensive tariff records from API server`);
+        setCachedData(cacheKey, data.tariffs);
+        return data.tariffs;
+      }
+    }
+  } catch (error) {
+    console.log('🔄 API server not available, falling back to government APIs:', error.message);
+  }
+  
+  console.log('🔄 Fetching from live government APIs...');
   const allTariffs = [];
   
   try {
@@ -3016,7 +3033,7 @@ export async function fetchRealTimeTariffData() {
         if (aPriority !== bPriority) return bPriority - aPriority;
         return new Date(b.effectiveDate) - new Date(a.effectiveDate);
       })
-      .slice(0, 50); // Limit to 50 most important tariffs
+      .slice(0, limit); // Limit to specified number of tariffs
     
     console.log(`Filtered tariffs to 2025+ only: ${filtered2025Plus.length} out of ${allTariffs.length} total tariffs`);
     console.log(`Total tariffs processed: ${sortedTariffs.length}`);

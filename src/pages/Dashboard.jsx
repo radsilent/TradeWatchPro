@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Port, Disruption, Tariff } from "@/api/entities";
-import { InvokeLLM } from "@/api/integrations";
+// InvokeLLM function removed since integrations.js was deleted
 import GlobalMap from "../components/dashboard/GlobalMap";
 import MetricsPanel from "../components/dashboard/MetricsPanel";
 import ActiveAlerts from "../components/dashboard/ActiveAlerts";
@@ -120,12 +120,13 @@ export default function Dashboard() {
       console.log('Loading with cached data for better performance');
       
       // Reduce data on mobile for better performance
-      const dataLimits = isMobile ? { ports: 50, disruptions: 20, tariffs: 25 } : { ports: 200, disruptions: 100, tariffs: 100 };
+      const dataLimits = isMobile ? { ports: 50, disruptions: 20, tariffs: 100 } : { ports: 200, disruptions: 100, tariffs: 500 };
       
       const [portsData, disruptionsData, tariffsData] = await Promise.all([
         Port.list('-strategic_importance', dataLimits.ports), // Reduced on mobile
         Disruption.list('-created_date', dataLimits.disruptions), // Reduced on mobile
         Tariff.list('-trade_value', dataLimits.tariffs) // Reduced on mobile
+        // Vessels removed from dashboard - only loaded on vessel tracking page
       ]);
       
       console.log('Ports loaded:', portsData.length);
@@ -143,6 +144,7 @@ export default function Dashboard() {
       setPorts(portsData);
       setDisruptions(disruptionsData);
       setTariffs(tariffsData);
+      // Vessels not loaded on dashboard for performance
 
       // Always set up the date range from present to 2035
       const currentDate = new Date();
@@ -170,65 +172,11 @@ export default function Dashboard() {
     setIsLoading(false);
   }, [isMobile]); // Include isMobile to reload data when device type changes
 
+  // Removed InvokeLLM call - now using real data sources only
   const generateRecentDisruptionData = async () => {
-    try {
-      const result = await InvokeLLM({
-        prompt: `Generate realistic trade disruption events for the past 30 days. Include current real-world issues like:
-        - Geopolitical tensions (South China Sea, Red Sea attacks, Ukraine conflict impacts)
-        - Weather events (storms, droughts affecting Panama Canal, typhoons)
-        - Port strikes and labor disputes
-        - Cyber attacks on maritime infrastructure
-        - Supply chain bottlenecks
-        - Container ship accidents or groundings
-        
-        For each event, provide:
-        - Descriptive title and detailed description
-        - Start date within last 30 days
-        - Severity level (low, medium, high, critical)
-        - Affected regions from major shipping routes
-        - Economic impact estimate
-        - Current status (active, resolved, monitoring)
-        - Confidence score (70-95%)
-        - Type (weather, geopolitical, cyber, infrastructure, labor, security)`,
-        add_context_from_internet: true,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            disruptions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  title: { type: "string" },
-                  description: { type: "string" },
-                  event_date: { type: "string" },
-                  severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
-                  affected_regions: { type: "array", items: { type: "string" } },
-                  economic_impact: { type: "string" },
-                  status: { type: "string", enum: ["active", "resolved", "monitoring"] },
-                  confidence_score: { type: "number", minimum: 70, maximum: 95 },
-                  type: { type: "string", enum: ["weather", "geopolitical", "cyber", "infrastructure", "labor", "security"] }
-                },
-                required: ["title", "description", "event_date", "severity", "affected_regions"]
-              }
-            }
-          }
-        }
-      });
-
-      if (result?.disruptions) {
-        // Create disruption records from generated data
-        for (const disruptionData of result.disruptions.slice(0, 15)) {
-          await Disruption.create({
-            ...disruptionData,
-            start_date: disruptionData.event_date || new Date().toISOString(),
-            affected_ports: [] // Will be populated based on affected_regions
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error generating recent disruption data:", error);
-    }
+    // This function is no longer needed since we fetch real disruption data
+    // from authoritative sources in the loadData function
+    console.log("Disruption data now comes from real maritime news sources");
   };
 
   const generateRealTimeAlerts = async () => {
@@ -511,56 +459,37 @@ export default function Dashboard() {
             </div>
           </div>
           
-          {/* Vessel Tracking Overview */}
+          {/* Vessel Tracking - Link to dedicated page */}
           <div className="bg-slate-800/30 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700/50 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-slate-100">Key Vessels</h3>
+              <h3 className="text-xl font-semibold text-slate-100">Vessel Tracking</h3>
               <a 
                 href="/VesselTracking" 
                 className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
               >
-                Track All →
+                View All →
               </a>
             </div>
             
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-                <div>
-                  <p className="text-slate-100 font-medium text-sm">MSC GÜLSÜN</p>
-                  <p className="text-red-400 text-xs">Delayed • Red Sea</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-slate-300 text-xs">High value cargo</p>
-                  <p className="text-red-400 text-xs">18 days delay</p>
-                </div>
+            <div className="text-center py-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-900/20 rounded-full mb-4">
+                <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
               </div>
-              
-              <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-                <div>
-                  <p className="text-slate-100 font-medium text-sm">EVER GIVEN</p>
-                  <p className="text-orange-400 text-xs">Rerouted • Red Sea</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-slate-300 text-xs">High value cargo</p>
-                  <p className="text-orange-400 text-xs">15 days delay</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-                <div>
-                  <p className="text-slate-100 font-medium text-sm">MAERSK LIMA</p>
-                  <p className="text-red-400 text-xs">Stuck • Panama Canal</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-slate-300 text-xs">Container cargo</p>
-                  <p className="text-red-400 text-xs">21 days delay</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-4 pt-4 border-t border-slate-700 flex items-center justify-between text-sm">
-              <span className="text-slate-400">Tracked: 10 vessels</span>
-              <span className="text-red-400">4 impacted</span>
+              <h4 className="text-lg font-semibold text-slate-100 mb-2">Live Vessel Tracking</h4>
+              <p className="text-slate-400 text-sm mb-4">
+                Real-time monitoring of thousands of maritime vessels worldwide
+              </p>
+              <a 
+                href="/VesselTracking"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Track Vessels
+              </a>
             </div>
           </div>
         </div>

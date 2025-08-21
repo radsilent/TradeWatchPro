@@ -35,7 +35,7 @@ export default function TariffTracking() {
       setIsLoading(true);
       try {
         console.log('Loading real-time tariff data...');
-        const realTariffs = await Tariff.list('-priority', 100); // Get up to 100 tariffs
+        const realTariffs = await Tariff.list('-priority', 500); // Get up to 500 tariffs
         console.log('Loaded tariffs:', realTariffs.length);
         setTariffs(realTariffs);
         setFilteredTariffs(realTariffs);

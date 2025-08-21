@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -22,7 +24,7 @@ import {
   RefreshCw
 } from "lucide-react";
 
-// Key Vessel Tracking Page
+// Key Vessel Tracking Page - UPDATED FOR REAL API DATA
 export default function VesselTracking() {
   const [vessels, setVessels] = useState([]);
   const [filteredVessels, setFilteredVessels] = useState([]);
@@ -31,15 +33,74 @@ export default function VesselTracking() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [impactFilter, setImpactFilter] = useState("all");
+  const [originCountryFilter, setOriginCountryFilter] = useState("all");
+  const [destinationFilter, setDestinationFilter] = useState("all");
   const [selectedVessel, setSelectedVessel] = useState(null);
   const [viewMode, setViewMode] = useState("grid"); // grid or list
+  const [mapDisplayLimit, setMapDisplayLimit] = useState(300); // Limit vessels on map for performance
+  const [showAllOnMap, setShowAllOnMap] = useState(false);
   const [map, setMap] = useState(null);
   const [markersLayer, setMarkersLayer] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const mapRef = useRef(null);
 
-  // Comprehensive vessel data with key tracked vessels
-  const keyVessels = [
+  // Load vessel data from API
+  useEffect(() => {
+    const loadVesselData = async () => {
+      try {
+        setIsLoading(true);
+        console.log('🚢 Loading vessel data from API...');
+        console.log('🔄 Cache-busted refresh:', Date.now());
+        
+        // DIRECT API CALL - get real vessel data (minimum 300 vessels)
+        const response = await fetch('http://localhost:8001/api/vessels?limit=5000&_refresh=' + Date.now());
+        if (!response.ok) {
+          throw new Error(`API responded with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const allVessels = data.vessels || [];
+        
+        // SEPARATE: All vessels for map display, impacted vessels for list
+        const impactedVessels = allVessels.filter(vessel => vessel.impacted === true);
+        console.log(`✅ Loaded ${allVessels.length} total vessels, ${impactedVessels.length} are impacted`);
+        
+        // Store ALL vessels for map, but filter list to IMPACTED only
+        setVessels(allVessels); // All vessels for map
+        setFilteredVessels(impactedVessels); // Only impacted for list
+      } catch (error) {
+        console.error('🚨 Error loading vessel data:', error);
+        console.error('Error details:', error.message, error.stack);
+        
+        // Try fallback direct fetch
+        try {
+          console.log('🔄 Trying fallback direct fetch...');
+          const fallbackResponse = await fetch('http://localhost:8001/api/vessels?limit=100');
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            const allVessels = fallbackData.vessels || [];
+            const impactedVessels = allVessels.filter(vessel => vessel.impacted === true);
+            console.log(`✅ Fallback: Loaded ${allVessels.length} total, ${impactedVessels.length} impacted`);
+            setVessels(allVessels);
+            setFilteredVessels(impactedVessels);
+          } else {
+            throw new Error(`Fallback failed: ${fallbackResponse.status}`);
+          }
+        } catch (fallbackError) {
+          console.error('🚨 Fallback also failed:', fallbackError);
+          setVessels([]);
+          setFilteredVessels([]);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadVesselData();
+  }, []);
+
+  // REMOVED: Hardcoded vessel data replaced with API call above
+  const keyVessels_OLD_DELETED = [
     // CRITICAL TRACKED VESSELS
     { 
       id: 1, name: "MSC GÜLSÜN", type: "Ultra Large Container Ship", 
@@ -223,10 +284,9 @@ export default function VesselTracking() {
     }
   ];
 
+  // REMOVED: Old hardcoded data loading replaced with API call above
   useEffect(() => {
-    setVessels(keyVessels);
-    setFilteredVessels(keyVessels);
-    setIsLoading(false);
+    // Hardcoded vessel loading removed - now using API
     
     // Mobile detection
     const checkMobile = () => {
@@ -241,77 +301,147 @@ export default function VesselTracking() {
     };
   }, []);
 
-  // Initialize Leaflet map
+  // Initialize Leaflet map - WITH REF RETRY
   useEffect(() => {
-    const initMap = async () => {
-      try {
-        const L = await import('leaflet');
-        await import('leaflet/dist/leaflet.css');
-        
-        // Fix default markers
-        delete L.default.Icon.Default.prototype._getIconUrl;
-        L.default.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-        });
-
-        if (mapRef.current && !map) {
-          const leafletMap = L.default.map(mapRef.current, {
-            center: [20, 0],
-            zoom: 2,
-            zoomControl: true,
-            attributionControl: true
-          });
-
-          L.default.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
-            maxZoom: 18
-          }).addTo(leafletMap);
-
-          const markerGroup = L.default.layerGroup().addTo(leafletMap);
-          setMap(leafletMap);
-          setMarkersLayer(markerGroup);
-        }
-      } catch (error) {
-        console.error('Failed to initialize map:', error);
+    const initMapWithRetry = () => {
+      console.log('🗺️ STARTING MAP INIT');
+      console.log('🗺️ mapRef.current:', !!mapRef.current);
+      
+      if (!mapRef.current) {
+        console.log('⏳ MAP REF NOT READY, retrying in 100ms...');
+        setTimeout(initMapWithRetry, 100);
+        return;
       }
-    };
-
-    initMap();
-    return () => {
+      
       if (map) {
-        map.remove();
+        console.log('✅ MAP ALREADY EXISTS');
+        return;
+      }
+      
+      try {
+        console.log('🗺️ CREATING MAP...');
+        const leafletMap = L.map(mapRef.current).setView([20, 0], 2);
+        
+        console.log('🗺️ ADDING TILES...');
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(leafletMap);
+        
+        console.log('🗺️ CREATING MARKER LAYER...');
+        const markerGroup = L.layerGroup().addTo(leafletMap);
+        
+        console.log('🗺️ SETTING STATE...');
+        setMap(leafletMap);
+        setMarkersLayer(markerGroup);
+        
+        console.log('✅ MAP COMPLETE!');
+        
+      } catch (error) {
+        console.error('❌ MAP ERROR:', error);
       }
     };
-  }, [map]);
+    
+    // Start the retry process
+    initMapWithRetry();
+  }, []);
+
+  // Debug: Log when component mounts
+  useEffect(() => {
+    console.log('🚢 VesselTracking component mounted successfully');
+    console.log('🚢 mapRef after mount:', !!mapRef.current);
+  }, []);
 
   // Update map markers
   useEffect(() => {
-    if (!map || !markersLayer) return;
+    console.log(`🗺️ Map update triggered - map: ${!!map}, markersLayer: ${!!markersLayer}, vessels: ${vessels.length}`);
+    if (!map || !markersLayer) {
+      console.log(`⚠️ Map update skipped - map: ${!!map}, markersLayer: ${!!markersLayer}`);
+      return;
+    }
 
-    const updateMarkers = async () => {
+    const updateMarkers = () => {
       try {
-        const L = await import('leaflet');
+        console.log('🔍 CRITICAL DEBUG: updateMarkers function called');
+        console.log('🔍 Map object exists:', !!map);
+        console.log('🔍 MarkersLayer exists:', !!markersLayer);
+        
+        if (!markersLayer) {
+          console.log('❌ No markersLayer, cannot plot vessels');
+          return;
+        }
+        
         markersLayer.clearLayers();
+        console.log('🔍 Markers cleared successfully');
 
-        filteredVessels.forEach((vessel) => {
-          const course = vessel.course || 0;
-          const size = vessel.priority === 'Critical' ? 16 : vessel.priority === 'High' ? 14 : 12;
+        // Display ALL vessels on map, limit for performance
+        const vesselsToDisplay = vessels.slice(0, mapDisplayLimit);
+        console.log(`🗺️ VESSEL TRACKING MAP DEBUG:`);
+        console.log(`- Total vessels loaded: ${vessels.length}`);
+        console.log(`- Vessels to display on map: ${vesselsToDisplay.length}`);
+        console.log(`- Map display limit: ${mapDisplayLimit}`);
+        if (vessels.length > 0) {
+          console.log(`- First vessel data:`, vessels[0]);
+          console.log(`- First vessel coordinates:`, vessels[0].coordinates);
+        }
+        
+        console.log(`🔍 Starting to process ${vesselsToDisplay.length} vessels for map plotting`);
+        
+        vesselsToDisplay.forEach((vessel, index) => {
+          console.log(`🔍 Processing vessel ${index + 1}/${vesselsToDisplay.length}: ${vessel.name}`);
           
-          const getRiskColor = (riskLevel) => {
-            switch(riskLevel) {
-              case 'Emergency': return '#dc2626';
-              case 'Critical': return '#ea580c';
-              case 'High': return '#f59e0b';
-              case 'Medium': return '#3b82f6';
-              case 'Low': return '#10b981';
-              default: return '#6b7280';
+          // Extract coordinates from various possible formats
+          let lat, lng;
+          if (vessel.coordinates) {
+            if (Array.isArray(vessel.coordinates) && vessel.coordinates.length === 2) {
+              [lat, lng] = vessel.coordinates;
+              console.log(`🔍 Vessel ${vessel.name} - extracted coords from array: [${lat}, ${lng}]`);
+            } else if (vessel.coordinates.lat && vessel.coordinates.lng) {
+              lat = vessel.coordinates.lat;
+              lng = vessel.coordinates.lng;
+              console.log(`🔍 Vessel ${vessel.name} - extracted coords from object: [${lat}, ${lng}]`);
+            }
+          } else if (vessel.latitude && vessel.longitude) {
+            lat = vessel.latitude;
+            lng = vessel.longitude;
+            console.log(`🔍 Vessel ${vessel.name} - extracted coords from lat/lng fields: [${lat}, ${lng}]`);
+          }
+          
+          // Skip vessels without valid coordinates
+          if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+            console.log(`❌ Vessel ${vessel.name} SKIPPED - invalid coordinates: lat=${lat}, lng=${lng}`);
+            return;
+          }
+          
+          console.log(`✅ Vessel ${vessel.name} - coordinates validated: [${lat}, ${lng}]`);
+          
+          const course = vessel.course || 0;
+          const priority = vessel.priority || (vessel.impacted ? 'High' : 'Medium');
+          const size = priority === 'Critical' ? 16 : priority === 'High' ? 14 : 12;
+          
+          const getVesselColor = (vessel) => {
+            if (vessel.impacted) {
+              // Impacted vessels - Red/Orange based on risk level
+              switch(vessel.riskLevel) {
+                case 'Emergency': return '#dc2626'; // Dark red
+                case 'Critical': return '#ea580c';  // Orange-red
+                case 'High': return '#f59e0b';      // Orange
+                default: return '#ef4444';          // Red for impacted
+              }
+            } else {
+              // Non-impacted vessels - Blue/Green shades
+              switch(vessel.riskLevel) {
+                case 'High': return '#3b82f6';      // Blue
+                case 'Medium': return '#10b981';    // Green
+                case 'Low': return '#22c55e';       // Light green
+                default: return '#6b7280';          // Gray for normal
+              }
             }
           };
+          
+          const vesselColor = getVesselColor(vessel);
 
           // Create directional vessel marker
-          const vesselIcon = L.default.divIcon({
+          const vesselIcon = L.divIcon({
             html: `
               <div style="
                 width: ${size}px; 
@@ -326,9 +456,9 @@ export default function VesselTracking() {
                   height: 0; 
                   border-left: ${size/2}px solid transparent;
                   border-right: ${size/2}px solid transparent;
-                  border-bottom: ${size}px solid ${getRiskColor(vessel.riskLevel)};
+                  border-bottom: ${size}px solid ${vesselColor};
                   filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));
-                  ${vessel.priority === 'Critical' ? 'filter: drop-shadow(0 0 6px ' + getRiskColor(vessel.riskLevel) + ');' : ''}
+                  ${vessel.impacted ? 'filter: drop-shadow(0 0 6px ' + vesselColor + ');' : ''}
                 "></div>
               </div>
             `,
@@ -337,11 +467,14 @@ export default function VesselTracking() {
             iconAnchor: [size/2, size/2]
           });
 
-          const marker = L.default.marker([vessel.coordinates.lat, vessel.coordinates.lng], { icon: vesselIcon });
+          console.log(`🚢 Creating marker for vessel ${vessel.name} at [${lat}, ${lng}]`);
+          
+          const marker = L.marker([lat, lng], { icon: vesselIcon });
+          console.log(`✅ Marker created successfully for ${vessel.name}`);
 
           marker.bindPopup(`
             <div style="font-family: Arial, sans-serif; color: #333; min-width: 300px;">
-              <div style="background: linear-gradient(45deg, ${getRiskColor(vessel.riskLevel)}, ${getRiskColor(vessel.riskLevel)}aa); color: white; padding: 8px; margin: -8px -8px 12px -8px; border-radius: 4px;">
+              <div style="background: linear-gradient(45deg, ${vesselColor}, ${vesselColor}aa); color: white; padding: 8px; margin: -8px -8px 12px -8px; border-radius: 4px;">
                 <strong style="font-size: 16px;">${vessel.name}</strong>
                 <div style="font-size: 12px; opacity: 0.9;">${vessel.type}</div>
               </div>
@@ -355,19 +488,19 @@ export default function VesselTracking() {
                 <div><strong>MMSI:</strong> ${vessel.mmsi}</div>
                 <div><strong>IMO:</strong> ${vessel.imo}</div>
                 <div><strong>Flag:</strong> ${vessel.flag}</div>
-                <div><strong>Operator:</strong> ${vessel.operator}</div>
+                <div><strong>Operator:</strong> ${vessel.operator || vessel.owner}</div>
                 <div><strong>DWT:</strong> ${vessel.dwt.toLocaleString()}</div>
-                <div><strong>Crew:</strong> ${vessel.crew} people</div>
+                <div><strong>Crew:</strong> ${vessel.crew || vessel.crew_size} people</div>
               </div>
               
               <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
-                <div style="font-size: 12px;"><strong>Current:</strong> ${vessel.currentPort}</div>
-                <div style="font-size: 12px;"><strong>Destination:</strong> ${vessel.nextPort}</div>
-                ${vessel.eta ? `<div style="font-size: 12px;"><strong>ETA:</strong> ${vessel.eta.toLocaleDateString()}</div>` : ''}
-                <div style="font-size: 12px;"><strong>Tracking:</strong> ${vessel.tracking}</div>
+                <div style="font-size: 12px;"><strong>Current:</strong> ${vessel.currentPort || vessel.status || 'At Sea'}</div>
+                <div style="font-size: 12px;"><strong>Destination:</strong> ${vessel.nextPort || vessel.destination}</div>
+                ${vessel.eta ? `<div style="font-size: 12px;"><strong>ETA:</strong> ${vessel.eta instanceof Date ? vessel.eta.toLocaleDateString() : new Date(vessel.eta).toLocaleDateString()}</div>` : ''}
+                <div style="font-size: 12px;"><strong>Tracking:</strong> ${vessel.tracking || 'Active'}</div>
               </div>
               
-              ${vessel.incidents.length > 0 ? `
+              ${(vessel.incidents && vessel.incidents.length > 0) ? `
                 <div style="margin-top: 8px; padding: 6px; background: #fef3c7; border-radius: 4px; border-left: 3px solid #f59e0b;">
                   <div style="font-size: 11px; font-weight: bold; color: #92400e;">Active Incidents:</div>
                   ${vessel.incidents.map(incident => `<div style="font-size: 11px; color: #92400e;">• ${incident}</div>`).join('')}
@@ -381,6 +514,7 @@ export default function VesselTracking() {
 
           marker.on('click', () => setSelectedVessel(vessel));
           markersLayer.addLayer(marker);
+          console.log(`✅ Vessel ${vessel.name} marker added to map layer`);
         });
       } catch (error) {
         console.error('Failed to update markers:', error);
@@ -388,11 +522,12 @@ export default function VesselTracking() {
     };
 
     updateMarkers();
-  }, [map, markersLayer, filteredVessels]);
+  }, [map, markersLayer, vessels, mapDisplayLimit]);
 
-  // Filter vessels based on search and filters
+  // Filter vessels based on search and filters (LIST shows only IMPACTED vessels)
   useEffect(() => {
-    let filtered = vessels;
+    // Start with only impacted vessels for the list/cards
+    let filtered = vessels.filter(vessel => vessel.impacted === true);
 
     if (searchTerm) {
       filtered = filtered.filter(vessel => 
@@ -419,8 +554,41 @@ export default function VesselTracking() {
       }
     }
 
+    if (originCountryFilter !== "all") {
+      filtered = filtered.filter(vessel => 
+        vessel.flag && vessel.flag.toLowerCase().includes(originCountryFilter.toLowerCase())
+      );
+    }
+
+    if (destinationFilter !== "all") {
+      filtered = filtered.filter(vessel => 
+        vessel.destination && vessel.destination.toLowerCase().includes(destinationFilter.toLowerCase())
+      );
+    }
+
     setFilteredVessels(filtered);
-  }, [vessels, searchTerm, statusFilter, typeFilter, impactFilter]);
+  }, [vessels, searchTerm, statusFilter, typeFilter, impactFilter, originCountryFilter, destinationFilter]);
+
+  // Extract unique countries for filters
+  const getUniqueCountries = () => {
+    const countries = new Set();
+    vessels.forEach(vessel => {
+      if (vessel.flag) countries.add(vessel.flag);
+    });
+    return Array.from(countries).sort();
+  };
+
+  const getUniqueDestinations = () => {
+    const destinations = new Set();
+    vessels.forEach(vessel => {
+      if (vessel.destination) {
+        // Extract city/country from destination (e.g., "Port of Shanghai" -> "Shanghai")
+        const cleanDestination = vessel.destination.replace(/^Port of\s+/i, '').trim();
+        destinations.add(cleanDestination);
+      }
+    });
+    return Array.from(destinations).sort();
+  };
 
   const getStatusColor = (status) => {
     switch(status.toLowerCase()) {
@@ -449,6 +617,7 @@ export default function VesselTracking() {
 
   const impactedVessels = vessels.filter(v => v.impacted);
   const totalVessels = vessels.length;
+  const impactedCount = impactedVessels.length;
 
 
   if (isLoading) {
@@ -467,13 +636,29 @@ export default function VesselTracking() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              Key Vessel Tracking
-              <Badge className="bg-green-100 text-green-800 border-green-200">Live</Badge>
+              Impacted Vessel Tracking
+              <Badge className="bg-red-100 text-red-800 border-red-200">Critical</Badge>
             </h1>
-            <p className="text-gray-600 mt-2">Real-time monitoring of critical maritime vessels worldwide</p>
+            <p className="text-gray-600 mt-2">Real-time monitoring of vessels affected by disruptions and incidents</p>
           </div>
           
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-600">Map shows:</span>
+              <select 
+                value={mapDisplayLimit} 
+                onChange={(e) => setMapDisplayLimit(Number(e.target.value))}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                <option value={100}>Top 100</option>
+                <option value={200}>Top 200</option>
+                <option value={300}>Top 300</option>
+                <option value={500}>Top 500</option>
+                <option value={1000}>Top 1000</option>
+                <option value={vessels.length}>All {vessels.length}</option>
+              </select>
+              <span className="text-gray-500">vessels</span>
+            </div>
             <Button
               variant={viewMode === "grid" ? "default" : "outline"}
               size="sm"
@@ -494,6 +679,22 @@ export default function VesselTracking() {
         </div>
       </div>
 
+      {/* Performance Info */}
+      {vessels.length > 100 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-xs">!</span>
+            </div>
+            <h3 className="text-blue-800 font-medium">Performance Mode Active</h3>
+          </div>
+          <p className="text-blue-700 text-sm mt-1">
+            Showing {Math.min(mapDisplayLimit, totalVessels)} of {totalVessels} vessels on map. 
+            List below shows only {impactedCount} impacted vessels. Use dropdown to adjust map display.
+          </p>
+        </div>
+      )}
+
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
@@ -501,8 +702,8 @@ export default function VesselTracking() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Vessels</p>
-                <p className="text-3xl font-bold text-gray-900">{vessels.length}</p>
-                <p className="text-xs text-gray-500 mt-1">Key tracked vessels</p>
+                <p className="text-3xl font-bold text-gray-900">{totalVessels}</p>
+                <p className="text-xs text-gray-500 mt-1">Visible on map</p>
               </div>
               <Ship className="h-12 w-12 text-blue-500" />
             </div>
@@ -514,8 +715,8 @@ export default function VesselTracking() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Impacted Vessels</p>
-                <p className="text-3xl font-bold text-red-600">{impactedVessels.length}</p>
-                <p className="text-xs text-gray-500 mt-1">Affected by disruptions</p>
+                <p className="text-3xl font-bold text-red-600">{impactedCount}</p>
+                <p className="text-xs text-gray-500 mt-1">Listed below (affected by disruptions)</p>
               </div>
               <AlertTriangle className="h-12 w-12 text-red-500" />
             </div>
@@ -541,7 +742,7 @@ export default function VesselTracking() {
       {/* Search and Filters */}
       <Card>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
@@ -592,6 +793,34 @@ export default function VesselTracking() {
               </SelectContent>
             </Select>
 
+            <Select value={originCountryFilter} onValueChange={setOriginCountryFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Countries" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Countries</SelectItem>
+                {getUniqueCountries().map(country => (
+                  <SelectItem key={country} value={country}>
+                    🏳️ {country}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={destinationFilter} onValueChange={setDestinationFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Destinations" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Destinations</SelectItem>
+                {getUniqueDestinations().map(destination => (
+                  <SelectItem key={destination} value={destination}>
+                    🎯 {destination}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Button 
               variant="outline" 
               onClick={() => {
@@ -599,6 +828,8 @@ export default function VesselTracking() {
                 setStatusFilter("all");
                 setTypeFilter("all");
                 setImpactFilter("all");
+                setOriginCountryFilter("all");
+                setDestinationFilter("all");
               }}
               className="w-full"
             >
@@ -621,7 +852,16 @@ export default function VesselTracking() {
         <CardContent className="p-6">
           {!isMobile ? (
             <div style={{ position: 'relative' }}>
-              <div ref={mapRef} style={{ height: '500px', borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+              <div 
+                ref={mapRef} 
+                id="vessel-tracking-map"
+                style={{ 
+                  height: '500px', 
+                  borderRadius: '8px', 
+                  border: '1px solid #e5e7eb',
+                  backgroundColor: '#f9fafb'
+                }} 
+              />
             
             {/* Map Legend */}
             <div style={{
@@ -636,27 +876,33 @@ export default function VesselTracking() {
               zIndex: 1000,
               maxWidth: '200px'
             }}>
-              <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Risk Levels:</div>
+              <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Vessel Status:</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#666', marginBottom: '4px' }}>IMPACTED VESSELS:</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div style={{ width: '0', height: '0', borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderBottom: '12px solid #dc2626' }}></div>
-                  <span>Emergency</span>
+                  <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderBottom: '10px solid #dc2626' }}></div>
+                  <span style={{ fontSize: '11px' }}>Emergency</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderBottom: '10px solid #ea580c' }}></div>
-                  <span>Critical</span>
+                  <span style={{ fontSize: '11px' }}>Critical</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderBottom: '10px solid #f59e0b' }}></div>
-                  <span>High</span>
+                  <div style={{ width: '0', height: '0', borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderBottom: '10px solid #ef4444' }}></div>
+                  <span style={{ fontSize: '11px' }}>High/Other</span>
                 </div>
+                <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#666', marginTop: '8px', marginBottom: '4px' }}>NORMAL VESSELS:</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <div style={{ width: '0', height: '0', borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderBottom: '8px solid #3b82f6' }}></div>
-                  <span>Medium</span>
+                  <span style={{ fontSize: '11px' }}>High Risk</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <div style={{ width: '0', height: '0', borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderBottom: '8px solid #10b981' }}></div>
-                  <span>Low</span>
+                  <span style={{ fontSize: '11px' }}>Medium Risk</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '0', height: '0', borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderBottom: '8px solid #6b7280' }}></div>
+                  <span style={{ fontSize: '11px' }}>Low/Normal</span>
                 </div>
               </div>
             </div>
@@ -734,6 +980,12 @@ export default function VesselTracking() {
                       <div>
                         <h3 className="font-bold text-lg text-gray-900">{vessel.name}</h3>
                         <p className="text-sm text-gray-600">{vessel.type}</p>
+                        {vessel.last_updated && (
+                          <p className="text-xs text-gray-500 flex items-center mt-1">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Updated: {new Date(vessel.last_updated).toLocaleString()}
+                          </p>
+                        )}
                       </div>
                       <Badge className={getRiskColor(vessel.riskLevel)}>
                         {vessel.riskLevel}
@@ -770,7 +1022,7 @@ export default function VesselTracking() {
                         </div>
                       )}
 
-                      {vessel.incidents.length > 0 && (
+                      {(vessel.incidents && vessel.incidents.length > 0) && (
                         <div className="mt-3 p-2 bg-yellow-50 rounded border-l-2 border-yellow-400">
                           <p className="text-xs font-medium text-yellow-800">Active Incidents:</p>
                           {vessel.incidents.map((incident, idx) => (
@@ -798,6 +1050,12 @@ export default function VesselTracking() {
                         <h3 className="font-bold text-lg text-gray-900">{vessel.name}</h3>
                         <p className="text-sm text-gray-600">{vessel.type}</p>
                         <p className="text-xs text-gray-500">MMSI: {vessel.mmsi}</p>
+                        {vessel.last_updated && (
+                          <p className="text-xs text-gray-500 flex items-center mt-1">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Updated: {new Date(vessel.last_updated).toLocaleString()}
+                          </p>
+                        )}
                       </div>
                       
                       <div className="flex flex-col items-center">

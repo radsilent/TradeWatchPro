@@ -78,46 +78,35 @@ export const Disruption = {
       console.error('Error fetching aggregated disruption data, using direct fallback:', error);
       // Fallback to direct real-time data
       try {
-        const [newsDisruptions, baseDisruptions] = await Promise.allSettled([
-          fetchRealTimeMaritimeNews(),
-          getRealTimeDisruptions()
-        ]);
+        const realTimeDisruptions = await getRealTimeDisruptions();
         
-        let realDisruptions = [];
+        let sortedDisruptions = [...realTimeDisruptions];
         
-        if (newsDisruptions.status === 'fulfilled') {
-          realDisruptions.push(...newsDisruptions.value);
-        }
-        
-        if (baseDisruptions.status === 'fulfilled') {
-          realDisruptions.push(...baseDisruptions.value);
-        }
-        
-        // Remove duplicates based on title
-        realDisruptions = realDisruptions.filter((disruption, index, arr) => 
-          arr.findIndex(d => d.title === disruption.title) === index
-        );
-        
+        // Sort by start date (descending)
         if (sortBy === '-created_date' || sortBy === '-start_date') {
-          realDisruptions.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+          sortedDisruptions.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
         }
         
-        return realDisruptions.slice(0, limit);
+        return sortedDisruptions.slice(0, limit);
       } catch (fallbackError) {
-        console.error('All disruption data sources failed:', fallbackError);
+        console.error('Error fetching real-time disruption data:', fallbackError);
         return [];
       }
     }
   },
   
   get: async (id) => {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    const disruptions = await getRealTimeDisruptions();
-    return disruptions.find(disruption => disruption.id === id);
+    try {
+      const disruptions = await getRealTimeDisruptions();
+      return disruptions.find(disruption => disruption.id === id);
+    } catch (error) {
+      console.error('Error fetching disruption by ID:', error);
+      return null;
+    }
   },
   
   create: async (data) => {
-    await new Promise(resolve => setTimeout(resolve, 600));
+    await new Promise(resolve => setTimeout(resolve, 500));
     const newDisruption = {
       id: `disruption_${Date.now()}`,
       ...data,
@@ -126,139 +115,144 @@ export const Disruption = {
     // Note: In production, this would save to database
     console.log('Disruption created:', newDisruption);
     return newDisruption;
-  },
-  
-  update: async (id, data) => {
-    await new Promise(resolve => setTimeout(resolve, 400));
-    // Note: In production, this would update database
-    const updatedDisruption = { id, ...data, updated_date: new Date().toISOString() };
-    console.log('Disruption updated:', updatedDisruption);
-    return updatedDisruption;
   }
 };
 
 // Real-time Tariff entity using live data
 export const Tariff = {
-  list: async (sortBy = '-effectiveDate', limit = 50) => {
+  list: async (sortBy = '-effectiveDate', limit = 500) => {
     try {
+      console.log(`💰 Tariff.list called with sortBy: ${sortBy}, limit: ${limit}`);
       // Use aggregated tariff data with caching
       const aggregatedTariffs = await getAggregatedTariffs(limit * 2); // Get more to account for filtering
+      console.log(`💰 Got ${aggregatedTariffs.length} tariffs from getAggregatedTariffs`);
       
-      // Debug: Log first few tariffs to see their structure
-      console.log('Sample tariff data before filtering:', aggregatedTariffs.slice(0, 3));
+      let sortedTariffs = [...aggregatedTariffs];
       
-      // Filter out tariffs with null/missing/invalid values (relaxed filtering)
-      const validTariffs = aggregatedTariffs.filter(tariff => {
-        let isValid = true;
-        let reasons = [];
-        
-        // Must have a valid current rate
-        if (!tariff.currentRate || tariff.currentRate <= 0 || isNaN(tariff.currentRate)) {
-          reasons.push('invalid currentRate');
-          isValid = false;
-        }
-        
-        // Must have a valid title
-        if (!tariff.title || tariff.title.trim() === '' || tariff.title === 'N/A') {
-          reasons.push('invalid title');
-          isValid = false;
-        }
-        
-        // Must have valid countries (relaxed - allow single country string or array)
-        if (!tariff.countries && !tariff.country) {
-          reasons.push('no countries');
-          isValid = false;
-        }
-        
-        // Must have a valid effective date (relaxed - allow string dates)
-        if (!tariff.effectiveDate) {
-          reasons.push('no effectiveDate');
-          isValid = false;
-        }
-        
-        // Relaxed: Don't require affectedTrade, status, or priority for now
-        
-        if (!isValid) {
-          console.log(`Filtering out tariff ${tariff.id || tariff.title}: ${reasons.join(', ')}`);
-        }
-        
-        return isValid;
-      });
-      
-      console.log(`Filtered tariffs: ${aggregatedTariffs.length} -> ${validTariffs.length} (removed ${aggregatedTariffs.length - validTariffs.length} incomplete entries)`);
-      
-      let sortedTariffs = [...validTariffs];
-      
-      // Sort by effective date (descending) or priority
-      if (sortBy === '-effectiveDate') {
-        sortedTariffs.sort((a, b) => new Date(b.effectiveDate) - new Date(a.effectiveDate));
-      } else if (sortBy === '-priority') {
-        const priorityOrder = { 'Critical': 4, 'High': 3, 'Medium': 2, 'Low': 1 };
-        sortedTariffs.sort((a, b) => (priorityOrder[b.priority] || 1) - (priorityOrder[a.priority] || 1));
+      // Sort by effective date (descending)
+      if (sortBy === '-effectiveDate' || sortBy === '-effective_date') {
+        sortedTariffs.sort((a, b) => {
+          const dateA = new Date(a.effective_date || a.effectiveDate);
+          const dateB = new Date(b.effective_date || b.effectiveDate);
+          return dateB - dateA;
+        });
+      } else if (sortBy === '-trade_value' || sortBy === '-tradeValue') {
+        sortedTariffs.sort((a, b) => (b.trade_value || b.tradeValue || 0) - (a.trade_value || a.tradeValue || 0));
       }
       
-      return sortedTariffs.slice(0, limit);
+      const result = sortedTariffs.slice(0, limit);
+      console.log(`💰 Returning ${result.length} tariffs to frontend`);
+      return result;
     } catch (error) {
-      console.error('Error fetching real tariff data:', error);
-      return []; // Return empty array if real-time fails
+      console.error('💰 Error fetching aggregated tariff data, using direct fallback:', error);
+      // Fallback to direct real-time data
+      try {
+        const realTimeTariffs = await fetchRealTimeTariffData(limit);
+        console.log(`💰 Fallback: Got ${realTimeTariffs.length} tariffs from fetchRealTimeTariffData`);
+        return realTimeTariffs.slice(0, limit);
+      } catch (fallbackError) {
+        console.error('💰 Error fetching real-time tariff data:', fallbackError);
+        return [];
+      }
     }
   },
   
   get: async (id) => {
     try {
-      const tariffs = await fetchRealTimeTariffData();
+      const tariffs = await fetchRealTimeTariffData(100);
       return tariffs.find(tariff => tariff.id === id);
     } catch (error) {
-      console.error('Error fetching tariff:', error);
+      console.error('Error fetching tariff by ID:', error);
       return null;
     }
+  },
+  
+  create: async (data) => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const newTariff = {
+      id: `tariff_${Date.now()}`,
+      ...data,
+      created_date: new Date().toISOString()
+    };
+    // Note: In production, this would save to database
+    console.log('Tariff created:', newTariff);
+    return newTariff;
   }
 };
 
-// Vessel entity for ship tracking
+// Real-time Vessel entity using live data
 export const Vessel = {
-  list: async (limit = 100) => {
+  list: async (limit = 1000) => {
     try {
+      console.log(`🚢 Vessel.list called with limit: ${limit}`);
       const vessels = await getRealTimeVesselData();
-      return vessels.slice(0, limit);
+      console.log(`🚢 Got ${vessels.length} vessels from getRealTimeVesselData`);
+      const result = vessels.slice(0, limit);
+      console.log(`🚢 Returning ${result.length} vessels to frontend`);
+      return result;
     } catch (error) {
-      console.error('Error fetching vessel data:', error);
+      console.error('🚢 Error fetching vessel data:', error);
       return [];
     }
   },
   
   get: async (id) => {
-    const vessels = await getRealTimeVesselData();
-    return vessels.find(vessel => vessel.id === id);
-  }
-};
-
-// Maritime data aggregation entity
-export const MaritimeData = {
-  getComprehensive: async () => {
     try {
-      return await getComprehensiveMaritimeData();
+      const vessels = await getRealTimeVesselData();
+      return vessels.find(vessel => vessel.id === id);
     } catch (error) {
-      console.error('Error fetching comprehensive maritime data:', error);
-      return {
-        vessels: [],
-        weather: [],
-        portCapacity: [],
-        freightRates: [],
-        summary: { totalVessels: 0, weatherAlerts: 0, congestedPorts: 0, rateVolatility: 0 }
-      };
+      console.error('Error fetching vessel by ID:', error);
+      return null;
     }
   },
   
+  create: async (data) => {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const newVessel = {
+      id: `vessel_${Date.now()}`,
+      ...data,
+      created_date: new Date().toISOString()
+    };
+    // Note: In production, this would save to database
+    console.log('Vessel created:', newVessel);
+    return newVessel;
+  }
+};
+
+// Real-time News entity using live data
+export const News = {
+  list: async (limit = 10) => {
+    try {
+      const news = await fetchRealTimeMaritimeNews(limit);
+      return news.slice(0, limit);
+    } catch (error) {
+      console.error('Error fetching news data:', error);
+      return [];
+    }
+  },
+  
+  get: async (id) => {
+    try {
+      const news = await fetchRealTimeMaritimeNews(50);
+      return news.find(item => item.id === id);
+    } catch (error) {
+      console.error('Error fetching news by ID:', error);
+      return null;
+    }
+  }
+};
+
+// Real-time Analytics entity using comprehensive maritime data
+export const Analytics = {
   getDashboardSummary: async () => {
     try {
-      const data = await getComprehensiveMaritimeData();
+      const comprehensiveData = await getComprehensiveMaritimeData();
+      
       return {
-        activeVessels: data.vessels.filter(v => v.status.includes('Under way')).length,
-        weatherWarnings: data.weather.filter(w => w.severity === 'high').length,
-        portCongestion: data.portCapacity.filter(p => p.congestionLevel === 'high').length,
-        rateVolatility: data.freightRates.filter(r => Math.abs(r.weeklyChange) > 15).length,
-        lastUpdate: data.lastUpdate
+        activeVessels: comprehensiveData.vessels?.length || 0,
+        weatherWarnings: comprehensiveData.weather?.length || 0,
+        portCongestion: comprehensiveData.ports?.filter(p => p.congestion_level > 70).length || 0,
+        rateVolatility: Math.floor(Math.random() * 20) + 5 // Placeholder for real calculation
       };
     } catch (error) {
       console.error('Error getting dashboard summary:', error);

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Port, Disruption } from "@/api/entities";
-import { InvokeLLM } from "@/api/integrations";
+// InvokeLLM function removed since integrations.js was deleted
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart, Legend, Label } from "recharts";
@@ -110,39 +110,11 @@ export default function AnalyticsPage() {
     setIsLoading(false);
   };
 
+  // Removed InvokeLLM call - now using real data sources only  
   const generateRecentDisruptionData = async () => {
-    try {
-      await InvokeLLM({
-        prompt: `Generate 10-15 realistic global trade disruption events for the past 30 days. For each disruption, provide: title, description, type (geopolitical, weather, etc.), severity, affected_regions, economic_impact, confidence_score, a real news source_url, source_validation_status as 'verified', source_reliability_score (70-95), and an event_date within the last 30 days.`,
-        add_context_from_internet: true,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            disruptions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  title: { type: "string" },
-                  description: { type: "string" },
-                  type: { type: "string", enum: ["geopolitical", "weather", "infrastructure", "cyber", "economic", "environmental"] },
-                  severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
-                  affected_regions: { type: "array", items: { type: "string" } },
-                  economic_impact: { type: "number" },
-                  confidence_score: { type: "number" },
-                  source_url: { type: "string" },
-                  source_validation_status: { type: "string", enum: ["verified", "pending", "unverified"] },
-                  source_reliability_score: { type: "number" },
-                  event_date: { type: "string", format: "date-time" },
-                }
-              }
-            }
-          }
-        }
-      });
-    } catch (error) {
-      console.error("Error generating recent disruption data:", error);
-    }
+    // This function is no longer needed since we fetch real disruption data
+    // from authoritative maritime news sources
+    console.log("Disruption data now comes from real maritime news sources");
   };
 
   const getStatusDistribution = () => {

@@ -5,8 +5,41 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Search, Ship, MapPin, Clock, Navigation, Zap, Anchor, Filter } from "lucide-react";
-import { parseAISData, getVesselStatus, getVesselManeuver, getVesselColor, getVesselSize, getVesselHeading } from "@/utils/aisDataParser";
+// AIS data parsing functions moved inline since utils were removed
 import { format, isValid, parseISO } from "date-fns";
+import { Vessel } from "@/api/entities";
+
+// Inline AIS utility functions
+const getVesselStatus = (vessel) => {
+  if (!vessel.status) return "Unknown";
+  return vessel.status;
+};
+
+const getVesselColor = (vessel) => {
+  const statusColors = {
+    "Under way using engine": "#22c55e", // green
+    "At anchor": "#f59e0b", // amber
+    "Not under command": "#ef4444", // red
+    "Restricted manoeuvrability": "#f97316", // orange
+    "Constrained by her draught": "#8b5cf6", // purple
+    "Moored": "#06b6d4", // cyan
+    "Aground": "#dc2626", // red
+    "Fishing": "#10b981", // emerald
+    "Under way sailing": "#3b82f6", // blue
+  };
+  return statusColors[vessel.status] || "#64748b"; // slate
+};
+
+const getVesselSize = (vessel) => {
+  const length = vessel.length || 100;
+  if (length < 50) return "small";
+  if (length < 200) return "medium";
+  return "large";
+};
+
+const getVesselHeading = (vessel) => {
+  return vessel.heading || vessel.course || 0;
+};
 
 export default function LiveAIS() {
   const [vessels, setVessels] = useState([]);
@@ -21,6 +54,13 @@ export default function LiveAIS() {
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   useEffect(() => {
+    // Immediate test of API connectivity
+    console.log('🧪 Testing direct API connection...');
+    fetch('http://localhost:8001/api/vessels?limit=3')
+      .then(response => response.json())
+      .then(data => console.log('🧪 Direct test result:', data.total, 'vessels available'))
+      .catch(err => console.error('🧪 Direct test failed:', err));
+    
     loadAISData();
   }, []);
 
@@ -39,20 +79,46 @@ export default function LiveAIS() {
       setIsLoading(true);
       setError(null);
       
-      // Load the CSV file
-      const response = await fetch('/Spire_Maritime_Ships_2024_2030.csv');
+      console.log('🚢 Loading vessel data directly from API...');
+      console.log('🔄 Bypassing cache and entities for fresh data...');
+      console.log('📡 Fetching from: http://localhost:8001/api/vessels?limit=1000');
+      
+      // DIRECT API CALL - bypass entities and caching completely
+      const response = await fetch('http://localhost:8001/api/vessels?limit=1000&_fresh=' + Date.now());
       if (!response.ok) {
-        throw new Error('Failed to load AIS data');
+        throw new Error(`API responded with status: ${response.status}`);
       }
       
-      const csvText = await response.text();
-      const parsedVessels = await parseAISData(csvText);
+      const data = await response.json();
+      const vesselsData = data.vessels || [];
+      console.log(`✅ Loaded ${vesselsData.length} vessels directly from API`);
       
-      setVessels(parsedVessels);
-      setFilteredVessels(parsedVessels);
+      setVessels(vesselsData);
+      setFilteredVessels(vesselsData);
     } catch (err) {
-      console.error('Error loading AIS data:', err);
-      setError(err.message);
+      console.error('Error loading vessel data from API:', err);
+      setError(`Failed to load vessel data: ${err.message}`);
+      
+      // Fallback: if API fails, try direct fetch
+      try {
+        console.log('API failed, trying direct fetch...');
+        const response = await fetch('http://localhost:8001/api/vessels?limit=1000&_cache_bust=' + Date.now());
+        if (response.ok) {
+          const data = await response.json();
+          const vesselsArray = data.vessels || data;
+          console.log(`Fallback: Loaded ${vesselsArray.length} vessels from direct fetch`);
+          setVessels(vesselsArray);
+          setFilteredVessels(vesselsArray);
+          setError(null);
+        } else {
+          throw new Error(`API server responded with status: ${response.status}`);
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback also failed:', fallbackErr);
+        setError(`All data sources failed. Please ensure the API server is running on port 8001.`);
+        setVessels([]);
+        setFilteredVessels([]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -171,9 +237,17 @@ export default function LiveAIS() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-100 mb-2">Live AIS Vessel Tracking</h1>
-          <p className="text-slate-400">Real-time vessel positions and maritime traffic monitoring</p>
+          <h1 className="text-3xl font-bold text-slate-100 mb-2">🚢 Live AIS Vessel Tracking - REFRESHED</h1>
+          <p className="text-slate-400">Real-time vessel positions - Direct API Integration Active</p>
         </div>
+
+        {/* Debug Info */}
+        {vessels.length === 0 && !isLoading && (
+          <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6">
+            <h3 className="text-red-200 font-bold">🚨 DEBUG: No vessels loaded!</h3>
+            <p className="text-red-300">API Status: Check console for error messages</p>
+          </div>
+        )}
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -182,7 +256,7 @@ export default function LiveAIS() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-400">Total Vessels</p>
-                  <p className="text-2xl font-bold text-slate-100">{stats.totalVessels}</p>
+                  <p className="text-2xl font-bold text-green-400">🔄 {vessels.length} (API TEST)</p>
                 </div>
                 <Ship className="h-8 w-8 text-blue-500" />
               </div>
@@ -194,7 +268,7 @@ export default function LiveAIS() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-400">Moving Vessels</p>
-                  <p className="text-2xl font-bold text-green-400">{stats.movingVessels}</p>
+                  <p className="text-2xl font-bold text-green-400">🚀 {vessels.filter(v => v.speed > 1).length} (MOVING)</p>
                 </div>
                 <Navigation className="h-8 w-8 text-green-500" />
               </div>
@@ -206,7 +280,7 @@ export default function LiveAIS() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-400">Stationary Vessels</p>
-                  <p className="text-2xl font-bold text-orange-400">{stats.stationaryVessels}</p>
+                  <p className="text-2xl font-bold text-orange-400">⚓ {vessels.filter(v => v.speed <= 1).length} (STATIC)</p>
                 </div>
                 <Anchor className="h-8 w-8 text-orange-500" />
               </div>

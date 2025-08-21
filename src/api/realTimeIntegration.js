@@ -32,7 +32,7 @@ const API_ENDPOINTS = {
 
 // Cache system for API responses
 const cache = new Map();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 0; // No cache for immediate updates to force refresh
 
 function getCachedData(key) {
   const cached = cache.get(key);
@@ -84,13 +84,30 @@ async function fetchWithCORS(url, options = {}) {
   throw new Error('All fetch attempts failed');
 }
 
-// Real-time disruption data from news sources
+// Real-time disruption data from Python API server
 export async function getRealTimeDisruptions() {
   const cacheKey = 'realtime_disruptions';
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
   
-  console.log('Fetching real-time maritime disruptions...');
+  console.log('Fetching real-time maritime disruptions from API server...');
+  
+  // Try to fetch from our Python API server first
+  try {
+    const response = await fetch('http://localhost:8001/api/maritime-disruptions');
+    if (response.ok) {
+      const data = await response.json();
+      if (data.disruptions && data.disruptions.length > 0) {
+        console.log(`Fetched ${data.disruptions.length} disruptions from API server`);
+        setCachedData(cacheKey, data.disruptions);
+        return data.disruptions;
+      }
+    }
+  } catch (error) {
+    console.log('API server not available, falling back to direct news sources:', error.message);
+  }
+  
+  console.log('Fetching from direct news sources...');
   
   try {
     const disruptions = [];
@@ -357,12 +374,15 @@ export async function getRealTimePortData(limit = 200) {
 export async function getRealTimeVesselData() {
   const cacheKey = 'realtime_vessels';
   const cached = getCachedData(cacheKey);
+  console.log('🔍 getRealTimeVesselData called, cached data:', cached ? cached.length : 'none');
   if (cached) return cached;
   
   // Try to get vessels from maritime APIs first
   try {
+    console.log('🔄 Importing maritimeAPIs...');
     const { getVesselTrackingData } = await import('./maritimeAPIs.js');
-    const vessels = await getVesselTrackingData();
+    console.log('📡 Calling getVesselTrackingData with limit 2000...');
+    const vessels = await getVesselTrackingData(2000); // Request 2000 vessels instead of default
     if (vessels && vessels.length > 0) {
       console.log(`Got ${vessels.length} vessels from maritime APIs`);
       setCachedData(cacheKey, vessels);

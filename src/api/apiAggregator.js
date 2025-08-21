@@ -9,13 +9,13 @@ import { fetchRealTimeTariffData } from './tariffIntegration.js';
 class DataCache {
   constructor() {
     this.cache = new Map();
-    this.defaultTTL = 5 * 60 * 1000; // 5 minutes default
+    this.defaultTTL = 1000; // 1 second default to force refresh
     this.ttlConfig = {
       ports: 30 * 60 * 1000,        // 30 minutes for ports (slow changing)
       disruptions: 5 * 60 * 1000,   // 5 minutes for disruptions (fast changing)
       news: 10 * 60 * 1000,         // 10 minutes for news
-      tariffs: 60 * 60 * 1000,      // 1 hour for tariffs (very slow changing)
-      vessels: 2 * 60 * 1000,       // 2 minutes for vessels (real-time)
+      tariffs: 1000,      // 1 second for tariffs to force refresh
+      vessels: 1000,       // 1 second for vessels to force refresh
       weather: 15 * 60 * 1000       // 15 minutes for weather
     };
   }
@@ -243,7 +243,7 @@ export class APIAggregator {
   }
 
   // Aggregate tariff data
-  async aggregateTariffs(limit = 50) {
+  async aggregateTariffs(limit = 500) {
     const cacheKey = `aggregated_tariffs_${limit}`;
     const cached = this.cache.get(cacheKey);
     
@@ -254,7 +254,7 @@ export class APIAggregator {
     console.log('Aggregating tariff data...');
     
     try {
-      const tariffs = await this.retry(() => fetchRealTimeTariffData());
+      const tariffs = await this.retry(() => fetchRealTimeTariffData(limit * 2)); // Request more to have good selection
       
       const enhancedTariffs = tariffs
         .slice(0, limit)

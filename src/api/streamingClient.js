@@ -4,7 +4,7 @@
  */
 
 class StreamingAPIClient {
-    constructor(baseURL = 'http://localhost:8000') {
+    constructor(baseURL = 'http://localhost:8001') {
         this.baseURL = baseURL;
         this.eventSources = new Map();
         this.listeners = new Map();
