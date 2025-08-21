@@ -25,6 +25,9 @@ from models.economic_impact import EconomicImpactAssessor
 from services.data_pipeline import DataPipeline
 from services.model_manager import ModelManager
 from services.database import DatabaseManager
+from services.data_ingestion_service import DataIngestionService
+from scrapers.real_time_streamer import RealTimeDataStreamer
+from scrapers.maritime_data_scraper import MaritimeDataScraper
 from utils.config import get_settings
 from utils.logging_config import setup_logging
 
@@ -39,15 +42,17 @@ settings = get_settings()
 model_manager = None
 db_manager = None
 data_pipeline = None
+data_ingestion_service = None
+real_time_streamer = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    global model_manager, db_manager, data_pipeline
+    global model_manager, db_manager, data_pipeline, data_ingestion_service, real_time_streamer
     
-    logger.info("Starting TradeWatch AI Processing System")
+    logger.info("Starting TradeWatch AI Processing System with Real-Time Streaming")
     
-    # Initialize services
+    # Initialize core services
     db_manager = DatabaseManager(settings.database_url)
     await db_manager.initialize()
     
@@ -57,16 +62,30 @@ async def lifespan(app: FastAPI):
     data_pipeline = DataPipeline(db_manager, model_manager)
     await data_pipeline.initialize()
     
+    # Initialize enhanced data ingestion service
+    data_ingestion_service = DataIngestionService(db_manager, model_manager)
+    await data_ingestion_service.initialize()
+    
+    # Initialize real-time streaming
+    real_time_streamer = RealTimeDataStreamer()
+    await real_time_streamer.initialize()
+    
     # Start background tasks
     asyncio.create_task(periodic_model_training())
     asyncio.create_task(real_time_processing())
+    asyncio.create_task(start_real_time_streaming())
+    asyncio.create_task(batch_data_scraping())
     
-    logger.info("AI Processing System initialized successfully")
+    logger.info("AI Processing System with Real-Time Streaming initialized successfully")
     
     yield
     
     # Cleanup
     logger.info("Shutting down AI Processing System")
+    if data_ingestion_service:
+        await data_ingestion_service.shutdown()
+    if real_time_streamer:
+        await real_time_streamer.shutdown()
     if data_pipeline:
         await data_pipeline.shutdown()
     if db_manager:
@@ -332,11 +351,171 @@ async def get_performance_analytics():
             "timestamp": datetime.utcnow()
         }
         
+        # Add streaming analytics if available
+        if data_ingestion_service:
+            analytics["ingestion_stats"] = data_ingestion_service.get_ingestion_statistics()
+        
+        if real_time_streamer:
+            analytics["streaming_stats"] = real_time_streamer.get_stream_statistics()
+        
         return analytics
         
     except Exception as e:
         logger.error("Error retrieving analytics", error=str(e))
         raise HTTPException(status_code=500, detail=f"Analytics error: {str(e)}")
+
+# Real-time data endpoints
+@app.get("/streaming/live-data")
+async def get_live_streaming_data():
+    """Get current live streaming data"""
+    try:
+        if not real_time_streamer:
+            raise HTTPException(status_code=503, detail="Real-time streamer not initialized")
+        
+        live_data = real_time_streamer.get_live_data()
+        
+        return {
+            "live_data": live_data,
+            "timestamp": datetime.utcnow(),
+            "data_counts": {
+                category: len(data) if isinstance(data, (list, dict)) else 1
+                for category, data in live_data.items()
+            }
+        }
+        
+    except Exception as e:
+        logger.error("Error retrieving live data", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Live data error: {str(e)}")
+
+@app.get("/streaming/statistics")
+async def get_streaming_statistics():
+    """Get detailed streaming statistics"""
+    try:
+        if not data_ingestion_service:
+            raise HTTPException(status_code=503, detail="Data ingestion service not initialized")
+        
+        stats = data_ingestion_service.get_ingestion_statistics()
+        
+        return {
+            "ingestion_statistics": stats,
+            "timestamp": datetime.utcnow()
+        }
+        
+    except Exception as e:
+        logger.error("Error retrieving streaming statistics", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Statistics error: {str(e)}")
+
+@app.post("/streaming/restart-stream")
+async def restart_stream(stream_name: str):
+    """Restart a specific data stream"""
+    try:
+        if not real_time_streamer:
+            raise HTTPException(status_code=503, detail="Real-time streamer not initialized")
+        
+        await real_time_streamer.restart_stream(stream_name)
+        
+        return {
+            "message": f"Stream {stream_name} restarted successfully",
+            "timestamp": datetime.utcnow()
+        }
+        
+    except Exception as e:
+        logger.error("Error restarting stream", stream=stream_name, error=str(e))
+        raise HTTPException(status_code=500, detail=f"Stream restart error: {str(e)}")
+
+@app.get("/data/recent-vessels")
+async def get_recent_vessels(limit: int = 100):
+    """Get recent vessel data for real-time display"""
+    try:
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not initialized")
+        
+        query = """
+        SELECT vessel_id, latitude, longitude, speed_knots, heading_degrees, 
+               timestamp, data_source
+        FROM maritime.vessel_positions 
+        WHERE timestamp > NOW() - INTERVAL '1 hour'
+        ORDER BY timestamp DESC 
+        LIMIT $1
+        """
+        
+        vessels = await db_manager.execute_query(query, limit)
+        
+        return {
+            "vessels": vessels,
+            "count": len(vessels),
+            "timestamp": datetime.utcnow()
+        }
+        
+    except Exception as e:
+        logger.error("Error retrieving recent vessels", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Vessels data error: {str(e)}")
+
+@app.get("/data/active-alerts")
+async def get_active_alerts(severity: str = "all"):
+    """Get active alerts and disruptions"""
+    try:
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not initialized")
+        
+        # Build query based on severity filter
+        if severity == "all":
+            query = """
+            SELECT disruption_id, event_type, title, severity_level, 
+                   start_date, probability, confidence_score, ai_generated
+            FROM maritime.trade_disruptions 
+            WHERE status = 'active' 
+               AND (end_date IS NULL OR end_date > NOW())
+            ORDER BY severity_level DESC, start_date DESC 
+            LIMIT 50
+            """
+            alerts = await db_manager.execute_query(query)
+        else:
+            severity_map = {'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
+            severity_level = severity_map.get(severity, 2)
+            
+            query = """
+            SELECT disruption_id, event_type, title, severity_level, 
+                   start_date, probability, confidence_score, ai_generated
+            FROM maritime.trade_disruptions 
+            WHERE status = 'active' 
+               AND severity_level >= $1
+               AND (end_date IS NULL OR end_date > NOW())
+            ORDER BY severity_level DESC, start_date DESC 
+            LIMIT 50
+            """
+            alerts = await db_manager.execute_query(query, severity_level)
+        
+        return {
+            "alerts": alerts,
+            "count": len(alerts),
+            "filter": severity,
+            "timestamp": datetime.utcnow()
+        }
+        
+    except Exception as e:
+        logger.error("Error retrieving active alerts", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Alerts data error: {str(e)}")
+
+@app.post("/training/trigger-immediate")
+async def trigger_immediate_training(model_type: str = "all"):
+    """Trigger immediate model training"""
+    try:
+        if not model_manager:
+            raise HTTPException(status_code=503, detail="Model manager not initialized")
+        
+        # Start training in background
+        asyncio.create_task(model_manager.train_models(model_type=model_type, force_retrain=True))
+        
+        return {
+            "message": f"Immediate training triggered for {model_type} models",
+            "timestamp": datetime.utcnow(),
+            "model_type": model_type
+        }
+        
+    except Exception as e:
+        logger.error("Error triggering immediate training", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Training trigger error: {str(e)}")
 
 # Background tasks
 async def periodic_model_training():
@@ -370,6 +549,54 @@ async def real_time_processing():
             logger.error("Error in real-time processing", error=str(e))
             # Wait 5 minutes before retrying
             await asyncio.sleep(5 * 60)
+
+async def start_real_time_streaming():
+    """Start real-time data streaming"""
+    while True:
+        try:
+            logger.info("Starting real-time data streaming")
+            
+            if data_ingestion_service:
+                await data_ingestion_service.start_real_time_ingestion()
+            
+            # Keep streaming running
+            await asyncio.sleep(3600)  # Check hourly
+            
+        except Exception as e:
+            logger.error("Error in real-time streaming", error=str(e))
+            # Wait 10 minutes before retrying
+            await asyncio.sleep(10 * 60)
+
+async def batch_data_scraping():
+    """Batch data scraping task"""
+    while True:
+        try:
+            logger.info("Starting batch data scraping")
+            
+            # Initialize and run batch scraper
+            batch_scraper = MaritimeDataScraper()
+            await batch_scraper.initialize()
+            
+            # Scrape data from all sources
+            scraped_data = await batch_scraper.scrape_all_sources()
+            
+            # Process scraped data through ingestion service
+            if data_ingestion_service and scraped_data:
+                for category, data_items in scraped_data.items():
+                    if data_items:
+                        await data_ingestion_service.process_real_time_data(
+                            f"batch_{category}", data_items
+                        )
+            
+            await batch_scraper.close()
+            
+            # Wait 2 hours before next scraping cycle
+            await asyncio.sleep(2 * 60 * 60)
+            
+        except Exception as e:
+            logger.error("Error in batch data scraping", error=str(e))
+            # Wait 30 minutes before retrying
+            await asyncio.sleep(30 * 60)
 
 if __name__ == "__main__":
     uvicorn.run(
