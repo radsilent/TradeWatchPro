@@ -58,15 +58,24 @@ async def get_real_time_disruptions(limit: int = 20) -> List[Dict[str, Any]]:
     
     try:
         # Fetch from RSS feeds and free sources (no API keys required)
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15), headers=headers) as session:
             tasks = []
             
-            # Fetch from RSS feeds
+            # Fetch from RSS feeds (verified working URLs)
             rss_feeds = {
-                'maritime_executive': 'https://www.maritime-executive.com/rss.xml',
                 'splash247': 'https://splash247.com/feed/',
-                'ship_technology': 'https://www.ship-technology.com/rss/',
-                'port_technology': 'https://www.porttechnology.org/rss.xml'
+                'gCaptain': 'https://gcaptain.com/feed/',
+                'maritime_professional': 'https://www.maritimeprofessional.com/rss/news/',
+                'world_maritime_news': 'https://worldmaritimenews.com/feed/',
+                'safety4sea': 'https://safety4sea.com/feed/'
             }
             
             for source, rss_url in rss_feeds.items():
@@ -93,6 +102,9 @@ async def get_real_time_disruptions(limit: int = 20) -> List[Dict[str, Any]]:
                 severity_score(x.get('severity', 'low')),
                 x.get('confidence', 0)
             ), reverse=True)
+            
+            # NO FALLBACK TO MOCK DATA - only real RSS feed results
+            logger.info(f"Found {len(disruptions)} disruptions from real RSS feeds only")
             
             logger.info(f"Successfully fetched {len(disruptions)} real-time disruptions from RSS feeds")
             return disruptions[:limit]
@@ -148,9 +160,11 @@ async def fetch_rss_disruptions(session: aiohttp.ClientSession, source: str, rss
     disruptions = []
     
     try:
+        logger.info(f"Fetching RSS from {source}: {rss_url}")
         async with session.get(rss_url) as response:
             if response.status == 200:
                 content = await response.text()
+                logger.info(f"Successfully fetched RSS content from {source}, length: {len(content)}")
                 
                 # Parse RSS feed
                 from xml.etree import ElementTree as ET
@@ -159,6 +173,7 @@ async def fetch_rss_disruptions(session: aiohttp.ClientSession, source: str, rss
                     
                     # Handle different RSS formats
                     items = root.findall('.//item') or root.findall('.//{http://www.w3.org/2005/Atom}entry')
+                    logger.info(f"Found {len(items)} items in RSS feed from {source}")
                     
                     for item in items[:10]:  # Limit to 10 items per feed
                         title = ""
@@ -166,14 +181,32 @@ async def fetch_rss_disruptions(session: aiohttp.ClientSession, source: str, rss
                         pub_date = ""
                         link = ""
                         
-                        # Extract RSS item data
-                        title_elem = item.find('title') or item.find('.//{http://www.w3.org/2005/Atom}title')
-                        if title_elem is not None:
-                            title = title_elem.text or ""
+                        # Extract RSS item data with better handling
+                        title_elem = item.find('title')
+                        if title_elem is not None and title_elem.text:
+                            title = title_elem.text.strip()
+                            # Clean up CDATA if present
+                            if title.startswith('<![CDATA[') and title.endswith(']]>'):
+                                title = title[9:-3].strip()
                         
-                        desc_elem = item.find('description') or item.find('.//{http://www.w3.org/2005/Atom}summary')
-                        if desc_elem is not None:
-                            description = desc_elem.text or ""
+                        desc_elem = item.find('description') 
+                        if desc_elem is not None and desc_elem.text:
+                            description = desc_elem.text.strip()
+                            # Clean up CDATA if present
+                            if description.startswith('<![CDATA[') and description.endswith(']]>'):
+                                description = description[9:-3].strip()
+                            # Strip HTML tags for better text matching
+                            import re
+                            description = re.sub(r'<[^>]+>', '', description)
+                            description = re.sub(r'\s+', ' ', description).strip()
+                        else:
+                            # Try content:encoded or other fields
+                            content_elem = item.find('.//{http://purl.org/rss/1.0/modules/content/}encoded')
+                            if content_elem is not None and content_elem.text:
+                                description = content_elem.text.strip()
+                                import re
+                                description = re.sub(r'<[^>]+>', '', description)
+                                description = re.sub(r'\s+', ' ', description).strip()[:300]
                         
                         link_elem = item.find('link') or item.find('.//{http://www.w3.org/2005/Atom}link')
                         if link_elem is not None:
@@ -185,15 +218,18 @@ async def fetch_rss_disruptions(session: aiohttp.ClientSession, source: str, rss
                         
                         # Check if maritime relevant
                         combined_text = f"{title} {description}"
+                        logger.info(f"Processing article: '{title}' | Desc: '{description[:100]}...'")
                         if is_maritime_relevant(combined_text):
+                            logger.info(f"Found maritime relevant article: {title}")
                             # Create disruption from RSS item
                             disruption = {
                                 'id': f"rss_{source}_{hash(title)%100000}",
                                 'title': title[:100],  # Limit title length
                                 'description': description[:300] if description else title,
-                                'severity': classify_severity(combined_text),
+                                'severity': infer_severity(combined_text),
                                 'status': 'active',
-                                'coordinates': get_location_from_text(combined_text),
+                                'coordinates': infer_coordinates(combined_text),
+                                'affected_regions': infer_regions(combined_text),
                                 'sources': [{
                                     'name': source.replace('_', ' ').title(),
                                     'url': link,
@@ -238,7 +274,20 @@ def is_maritime_relevant(text: str) -> bool:
     ]
     
     matches = sum(1 for keyword in maritime_keywords if keyword in text_lower)
-    return matches >= 2
+    
+    # Additional specific shipping/port terms
+    specific_terms = [
+        'container', 'teu', 'twenty-foot equivalent', 'cargo', 'freight rate',
+        'bunker fuel', 'ship fuel', 'maritime law', 'flag state', 'imo',
+        'international maritime', 'port authority', 'terminal operator',
+        'shipping line', 'maersk', 'msc', 'cosco', 'evergreen line',
+        'cma cgm', 'hapag lloyd', 'shipping alliance', 'suezmax', 'vlcc'
+    ]
+    
+    specific_matches = sum(1 for term in specific_terms if term in text_lower)
+    
+    # Must have at least 1 maritime keyword OR 1 specific shipping term (more lenient)
+    return matches >= 1 or specific_matches >= 1
 
 def convert_article_to_disruption(article: Dict[str, Any], search_term: str) -> Dict[str, Any]:
     """Convert news article to disruption format"""
