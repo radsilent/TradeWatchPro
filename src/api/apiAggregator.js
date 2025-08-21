@@ -214,6 +214,16 @@ export class APIAggregator {
         .sort((a, b) => b.relevanceScore - a.relevanceScore)
         .slice(0, limit);
       
+      // If no disruptions were found, log the issue and return empty array (NO MOCK DATA)
+      if (enhancedDisruptions.length === 0) {
+        console.error('No disruption data available from any real-time source. Check API connectivity.');
+        console.log('News API status:', newsDisruptions.status);
+        console.log('Real-time API status:', realTimeDisruptions.status);
+        if (newsDisruptions.status === 'rejected') console.error('News API error:', newsDisruptions.reason);
+        if (realTimeDisruptions.status === 'rejected') console.error('Real-time API error:', realTimeDisruptions.reason);
+        return []; // Return empty array instead of mock data
+      }
+      
       this.cache.set(cacheKey, enhancedDisruptions, 'disruptions');
       return enhancedDisruptions;
       

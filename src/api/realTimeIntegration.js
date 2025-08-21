@@ -287,10 +287,9 @@ export async function getRealTimeDisruptions() {
       }
     }
     
-    // Fallback: Generate current realistic disruptions based on known ongoing issues
+    // NO MOCK DATA - Log if no real data found
     if (disruptions.length < 3) {
-      const fallbackDisruptions = generateCurrentDisruptions();
-      disruptions.push(...fallbackDisruptions);
+      console.warn('Limited disruption data found from real sources. Consider checking API connectivity or adding more news sources.');
     }
     
     const processedDisruptions = disruptions.slice(0, 15).map(processDisruption);
@@ -299,8 +298,8 @@ export async function getRealTimeDisruptions() {
     
   } catch (error) {
     console.error('Error fetching real-time disruptions:', error);
-    // Return current known disruptions as absolute fallback
-    return generateCurrentDisruptions();
+    // NO MOCK DATA - Return empty array if real APIs fail
+    return [];
   }
 }
 
@@ -618,68 +617,7 @@ function inferLocation(text) {
   return foundLocation || { name: 'Global', coords: [0, 0] };
 }
 
-// Generate current known disruptions as fallback
-function generateCurrentDisruptions() {
-  const now = new Date();
-  const recentDate = new Date(now.getTime() - (Math.random() * 7 * 24 * 60 * 60 * 1000));
-  
-  return [
-    {
-      id: 'current_redsea_attacks',
-      title: 'Red Sea Shipping Route Disruptions Continue',
-      description: 'Ongoing security concerns affecting commercial shipping through the Red Sea and Suez Canal corridor.',
-      start_date: recentDate.toISOString(),
-      end_date: null,
-      severity: 'high',
-      affectedRegions: ['Red Sea', 'Gulf of Aden', 'Suez Canal'],
-      economicImpact: 'High Impact',
-      status: 'active',
-      confidence: 95,
-      sources: [{
-        name: 'Maritime Security Update',
-        url: 'https://www.reuters.com/world/middle-east/',
-        publishedDate: recentDate.toISOString(),
-        reliability: 'high'
-      }]
-    },
-    {
-      id: 'current_panama_drought',
-      title: 'Panama Canal Transit Restrictions Due to Water Levels',
-      description: 'Continued restrictions on vessel transits through the Panama Canal due to ongoing drought conditions.',
-      start_date: new Date(now.getTime() - (5 * 24 * 60 * 60 * 1000)).toISOString(),
-      end_date: null,
-      severity: 'medium',
-      affectedRegions: ['Panama Canal', 'Caribbean Sea'],
-      economicImpact: 'Medium Impact',
-      status: 'active',
-      confidence: 90,
-      sources: [{
-        name: 'Panama Canal Authority',
-        url: 'https://www.pancanal.com/',
-        publishedDate: new Date(now.getTime() - (5 * 24 * 60 * 60 * 1000)).toISOString(),
-        reliability: 'official'
-      }]
-    },
-    {
-      id: 'current_container_rates',
-      title: 'Container Shipping Rates Volatility',
-      description: 'Fluctuating container shipping rates affecting global trade routes due to capacity constraints.',
-      start_date: new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000)).toISOString(),
-      end_date: null,
-      severity: 'medium',
-      affectedRegions: ['Global'],
-      economicImpact: 'Medium Impact',
-      status: 'monitoring',
-      confidence: 85,
-      sources: [{
-        name: 'Container Trade Statistics',
-        url: 'https://www.containertradestatistics.com/',
-        publishedDate: new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000)).toISOString(),
-        reliability: 'industry'
-      }]
-    }
-  ];
-}
+// NO MOCK DATA - All disruption data must come from real-time sources
 
 // Static port data for fallback (top world ports with proper coordinate format)
 export function getStaticPortData() {
