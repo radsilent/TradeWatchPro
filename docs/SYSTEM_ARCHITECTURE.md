@@ -5,6 +5,10 @@ TradeWatch is a comprehensive Global Trade Intelligence Platform that provides r
 
 ## System Architecture
 
+![System Architecture Overview](architecture_diagram.png)
+
+*Figure 1: TradeWatch System Architecture - Complete data flow from external sources through AI processing to frontend visualization*
+
 ### Frontend Layer (React/JavaScript)
 - **React Dashboard**: Main application interface with real-time data visualization
 - **Global Map Component**: Interactive Leaflet.js map showing vessels, ports, disruptions
@@ -62,6 +66,12 @@ TradeWatch is a comprehensive Global Trade Intelligence Platform that provides r
 4. **Prediction Generation**: Real-time forecasting and analytics
 5. **Confidence Scoring**: Reliability assessment for predictions
 6. **Risk Assessment**: Automated threat level evaluation
+
+## Component Architecture
+
+![Class Diagram](class_diagram.png)
+
+*Figure 2: TradeWatch Class Diagram - Detailed component relationships and data models*
 
 ## Key Features
 
