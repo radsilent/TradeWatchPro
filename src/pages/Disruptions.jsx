@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from "react";
 import { Disruption, Port } from "@/api/entities";
+import config from '@/config/environment';
+import { cacheDisruptions, getLastKnownDisruptions } from '@/utils/dataCache';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,25 +49,74 @@ export default function DisruptionsPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showForecasted, setShowForecasted] = useState(true);
 
   useEffect(() => {
-    loadDisruptions();
+    loadDisruptionsWithCache();
   }, []);
+
+  // Load last known data immediately, then refresh with new data
+  const loadDisruptionsWithCache = async () => {
+    // First, try to load last known data immediately
+    const lastKnownDisruptions = getLastKnownDisruptions();
+    if (lastKnownDisruptions && lastKnownDisruptions.length > 0) {
+      console.log('📦 Loading last known disruptions immediately:', lastKnownDisruptions.length, 'items');
+      setDisruptions(lastKnownDisruptions);
+      setIsLoading(false); // Show data immediately
+      setIsRefreshing(true); // Indicate we're refreshing in background
+    }
+
+    // Then load fresh data in background
+    await loadDisruptions();
+    setIsRefreshing(false);
+  };
 
   useEffect(() => {
     filterDisruptions();
   }, [disruptions, searchTerm, typeFilter, severityFilter, showForecasted]);
 
   const loadDisruptions = async () => {
-    setIsLoading(true);
+    // Only set loading to true if we don't have any data yet
+    if (disruptions.length === 0) {
+      setIsLoading(true);
+    }
+    
     try {
-      // Use the same real-time RSS API that the map uses
-      const response = await fetch('http://localhost:8001/api/maritime-disruptions');
+      // Use environment-aware API endpoint
+      const apiUrl = `${config.API_BASE_URL}/api/maritime-disruptions`;
+      console.log('🚨 Fetching fresh disruptions from:', apiUrl);
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+      
       const data = await response.json();
-      setDisruptions(data.disruptions || []);
+      const newDisruptions = data.disruptions || [];
+      console.log('🚨 Got fresh disruptions data:', newDisruptions.length, 'disruptions');
+      
+      // Cache the new data for future use
+      cacheDisruptions(newDisruptions);
+      setDisruptions(newDisruptions);
     } catch (error) {
-      console.error("Error loading disruptions:", error);
+      console.error("🚨 Error loading disruptions:", error);
+      
+      // Only try fallback if we don't already have cached data showing
+      if (disruptions.length === 0) {
+        try {
+          console.log('🔄 Trying Disruption entity as fallback...');
+          const entityDisruptions = await Disruption.list('-created_date', 100);
+          console.log('✅ Entity fallback: Got', entityDisruptions.length, 'disruptions');
+          if (entityDisruptions.length > 0) {
+            cacheDisruptions(entityDisruptions);
+            setDisruptions(entityDisruptions);
+          }
+        } catch (entityError) {
+          console.error('🚨 Even entity fallback failed:', entityError);
+          setDisruptions([]);
+        }
+      }
     }
     setIsLoading(false);
   };
@@ -197,6 +248,23 @@ export default function DisruptionsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Loading and Refresh Indicators */}
+        {isLoading && (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+            <p className="text-slate-400 mt-4">Loading disruptions data...</p>
+          </div>
+        )}
+
+        {isRefreshing && !isLoading && (
+          <div className="bg-blue-900/30 border border-blue-400/30 rounded-lg p-3 mb-6">
+            <div className="flex items-center justify-center gap-2 text-blue-400">
+              <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+              <span className="text-sm">Refreshing data in background...</span>
+            </div>
+          </div>
+        )}
 
         {/* Disruptions Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">

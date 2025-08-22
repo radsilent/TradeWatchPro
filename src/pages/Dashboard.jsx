@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Port, Disruption, Tariff } from "@/api/entities";
+import { cacheDashboardData, getLastKnownDashboardData, cacheDisruptions, getLastKnownDisruptions } from '@/utils/dataCache';
 // InvokeLLM function removed since integrations.js was deleted
 import GlobalMap from "../components/dashboard/GlobalMap";
 import MetricsPanel from "../components/dashboard/MetricsPanel";
@@ -50,6 +51,7 @@ export default function Dashboard() {
   const [tariffs, setTariffs] = useState([]);
   const [selectedPort, setSelectedPort] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [mapCenter, setMapCenter] = useState([20, 0]);
   const [mapZoom, setMapZoom] = useState(2);
   const [dateConfig, setDateConfig] = useState({ min: null, max: null });
@@ -65,8 +67,26 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    loadDashboardData();
+    loadDashboardDataWithCache();
   }, [layerVisibility]); // Reload data when layer visibility changes
+
+  // Load last known data immediately, then refresh with new data
+  const loadDashboardDataWithCache = useCallback(async () => {
+    // First, try to load last known data immediately
+    const lastKnownData = getLastKnownDashboardData();
+    if (lastKnownData) {
+      console.log('📦 Loading last known dashboard data immediately');
+      setPorts(lastKnownData.ports || []);
+      setDisruptions(lastKnownData.disruptions || []);
+      setTariffs(lastKnownData.tariffs || []);
+      setIsLoading(false); // Show data immediately
+      setIsRefreshing(true); // Indicate we're refreshing in background
+    }
+
+    // Then load fresh data in background
+    await loadDashboardData();
+    setIsRefreshing(false);
+  }, [layerVisibility]);
   
   useEffect(() => {
     // Mobile detection
@@ -132,12 +152,13 @@ export default function Dashboard() {
   }, [disruptions, selectedDateRange]);
 
   const loadDashboardData = useCallback(async () => {
-    setIsLoading(true);
+    // Only set loading to true if we don't have any data yet
+    if (ports.length === 0 && disruptions.length === 0 && tariffs.length === 0) {
+      setIsLoading(true);
+    }
+    
     try {
-      console.log('Loading dashboard data...');
-      
-      // Skip cache clearing for faster loading
-      console.log('Loading with cached data for better performance');
+      console.log('Loading fresh dashboard data...');
       
       // Reduce data on mobile for better performance
       const dataLimits = isMobile ? { ports: 50, disruptions: 20, tariffs: 100 } : { ports: 200, disruptions: 100, tariffs: 500 };
@@ -152,8 +173,9 @@ export default function Dashboard() {
       }
       
       if (layerVisibility.disruptions) {
-        // Use the same real-time RSS API that the map uses
-        loadPromises.push(fetch('http://localhost:8001/api/maritime-disruptions').then(res => res.json()).then(data => data.disruptions || []));
+        // Use environment-aware API endpoint
+        const { default: config } = await import('../config/environment.js');
+        loadPromises.push(fetch(`${config.API_BASE_URL}/api/maritime-disruptions`).then(res => res.json()).then(data => data.disruptions || []));
       } else {
         loadPromises.push(Promise.resolve([]));
       }
@@ -166,17 +188,11 @@ export default function Dashboard() {
       
       const [portsData, disruptionsData, tariffsData] = await Promise.all(loadPromises);
       
-      console.log('Ports loaded:', portsData.length);
-      console.log('Sample port data:', portsData.slice(0, 3));
-      console.log('Disruptions loaded:', disruptionsData.length);
-      console.log('Sample disruptions:', disruptionsData.slice(0, 3));
-      console.log('Tariffs loaded:', tariffsData.length);
-      console.log('Sample tariffs:', tariffsData.slice(0, 3));
-      console.log('Active disruptions:', disruptionsData.filter(d => d.status === 'active').length);
-      console.log('Maritime relevant disruptions:', disruptionsData.filter(d => {
-        const title = (d.title || '').toLowerCase();
-        return title.includes('shipping') || title.includes('port') || title.includes('maritime');
-      }).length);
+      console.log('Fresh data loaded - Ports:', portsData.length, 'Disruptions:', disruptionsData.length, 'Tariffs:', tariffsData.length);
+      
+      // Cache the new data
+      const dashboardData = { ports: portsData, disruptions: disruptionsData, tariffs: tariffsData };
+      cacheDashboardData(dashboardData);
       
       setPorts(portsData);
       setDisruptions(disruptionsData);
@@ -333,6 +349,16 @@ export default function Dashboard() {
           <div className="flex items-center justify-center text-sm text-blue-400">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mr-2"></div>
             Loading real-time trade data, this may take a minute...
+          </div>
+        </div>
+      )}
+
+      {/* Refresh notification */}
+      {isRefreshing && !isLoading && (
+        <div className="bg-green-900/20 border-b border-green-800/30 px-6 py-3">
+          <div className="flex items-center justify-center text-sm text-green-400">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-400 mr-2"></div>
+            Refreshing data in background...
           </div>
         </div>
       )}
