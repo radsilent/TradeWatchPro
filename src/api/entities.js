@@ -123,7 +123,46 @@ export const Tariff = {
   list: async (sortBy = '-effectiveDate', limit = 500) => {
     try {
       console.log(`💰 Tariff.list called with sortBy: ${sortBy}, limit: ${limit}`);
-      // Use aggregated tariff data with caching
+      
+      // First try to get tariffs directly from our backend API
+      try {
+        const { default: config } = await import('../config/environment.js');
+        const apiUrl = `${config.API_BASE_URL}/api/tariffs?limit=${limit}`;
+        console.log('💰 Fetching tariffs from API:', apiUrl);
+        
+        const response = await fetch(apiUrl);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.tariffs && data.tariffs.length > 0) {
+            console.log(`💰 Got ${data.tariffs.length} tariffs from backend API`);
+            
+            // Apply validation and sorting
+            const { validateTariffData } = await import('../utils/tariffUtils.js');
+            const validatedTariffs = data.tariffs.map(tariff => validateTariffData(tariff));
+            
+            let sortedTariffs = [...validatedTariffs];
+            
+            // Sort by effective date (descending)
+            if (sortBy === '-effectiveDate' || sortBy === '-effective_date') {
+              sortedTariffs.sort((a, b) => {
+                const dateA = new Date(a.effective_date || a.effectiveDate);
+                const dateB = new Date(b.effective_date || b.effectiveDate);
+                return dateB - dateA;
+              });
+            } else if (sortBy === '-trade_value' || sortBy === '-tradeValue') {
+              sortedTariffs.sort((a, b) => (b.trade_value || b.tradeValue || 0) - (a.trade_value || a.tradeValue || 0));
+            }
+            
+            const result = sortedTariffs.slice(0, limit);
+            console.log(`💰 Returning ${result.length} validated tariffs from API`);
+            return result;
+          }
+        }
+      } catch (apiError) {
+        console.log('💰 Backend API not available, trying aggregated data:', apiError.message);
+      }
+      
+      // Fallback to aggregated tariff data with caching
       const aggregatedTariffs = await getAggregatedTariffs(limit * 2); // Get more to account for filtering
       console.log(`💰 Got ${aggregatedTariffs.length} tariffs from getAggregatedTariffs`);
       
@@ -147,6 +186,7 @@ export const Tariff = {
       console.error('💰 Error fetching aggregated tariff data, using direct fallback:', error);
       // Fallback to direct real-time data
       try {
+        const { fetchRealTimeTariffData } = await import('./tariffIntegration.js');
         const realTimeTariffs = await fetchRealTimeTariffData(limit);
         console.log(`💰 Fallback: Got ${realTimeTariffs.length} tariffs from fetchRealTimeTariffData`);
         return realTimeTariffs.slice(0, limit);
