@@ -78,15 +78,17 @@ export default function VesselTracking() {
   // Load vessel data from API
   useEffect(() => {
     const loadVesselData = async () => {
+      // Use smaller limit for development performance, full 25k for production
+      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const vesselLimit = isDev ? 5000 : 25000; // 5k for dev, 25k for production
+      
       try {
         setIsLoading(true);
         console.log('🚢 Loading vessel data from API...');
         console.log('🔄 Cache-busted refresh:', Date.now());
-        
-        // DIRECT API CALL - get real vessel data (25,000 vessels with clustering)
-        // Add multiple cache-busting parameters for production
         const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const apiUrl = `${config.API_BASE_URL}/api/vessels?limit=25000&_refresh=${cacheBreaker}&_t=${Date.now()}`;
+        const apiUrl = `${config.API_BASE_URL}/api/vessels?limit=${vesselLimit}&_refresh=${cacheBreaker}&_t=${Date.now()}`;
+        console.log(`🚢 Using ${vesselLimit} vessels for ${isDev ? 'development' : 'production'}`);
         console.log('🌐 Fetching vessels from:', apiUrl);
         const response = await fetch(apiUrl);
         if (!response.ok) {
@@ -117,7 +119,7 @@ export default function VesselTracking() {
         // Try fallback direct fetch
         try {
           console.log('🔄 Trying fallback direct fetch...');
-          const fallbackUrl = `${config.API_BASE_URL}/api/vessels?limit=25000`;
+          const fallbackUrl = `${config.API_BASE_URL}/api/vessels?limit=${vesselLimit}`;
           console.log('🔄 Fallback API URL:', fallbackUrl);
           const fallbackResponse = await fetch(fallbackUrl);
           if (fallbackResponse.ok) {
@@ -140,7 +142,7 @@ export default function VesselTracking() {
           console.log('🔄 Trying Vessel entity as final fallback...');
           try {
             const { Vessel } = await import('../api/entities');
-            const entityVessels = await Vessel.list(25000);
+            const entityVessels = await Vessel.list(vesselLimit);
             console.log(`✅ Entity fallback: Got ${entityVessels.length} vessels`);
             
             // Validate entity vessels as well  

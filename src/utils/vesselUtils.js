@@ -21,8 +21,12 @@ const HIGH_RISK_AREAS = [
 function isVesselInHighRiskArea(lat, lon) {
     if (!lat || !lon) return false;
     
-    for (const area of HIGH_RISK_AREAS) {
-        const [minLat, maxLat, minLon, maxLon] = area.bounds;
+    // Quick bounds check for performance
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return false;
+    
+    // Check high-risk areas (optimized loop)
+    for (let i = 0; i < HIGH_RISK_AREAS.length; i++) {
+        const [minLat, maxLat, minLon, maxLon] = HIGH_RISK_AREAS[i].bounds;
         if (lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon) {
             return true;
         }
@@ -69,8 +73,8 @@ export const validateVesselData = (vessel) => {
     // Use backend value if available and true, otherwise use client calculation
     validatedVessel.impacted = backendImpacted === true ? true : clientImpacted;
     
-    // Debug logging for production troubleshooting
-    if (typeof window !== 'undefined' && Math.random() < 0.01) { // Log 1% of vessels
+    // Debug logging for production troubleshooting (reduced frequency)
+    if (typeof window !== 'undefined' && Math.random() < 0.001) { // Log 0.1% of vessels
         console.log(`🚢 Vessel Impact Debug: ${vessel.name || vessel.id} - Backend: ${backendImpacted}, Client: ${clientImpacted}, Final: ${validatedVessel.impacted}`);
     }
     
