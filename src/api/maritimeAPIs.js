@@ -31,7 +31,8 @@ export async function getVesselTrackingData(limit = 1000, area = null) {
     params.append('limit', limit.toString());
     if (area) params.append('area', area);
     
-    const response = await fetch(`http://localhost:8001/api/vessels?${params}`);
+    const { default: config } = await import('../config/environment.js');
+    const response = await fetch(`${config.API_BASE_URL}/api/vessels?${params}`);
     if (response.ok) {
       const data = await response.json();
       if (data.vessels && data.vessels.length > 0) {

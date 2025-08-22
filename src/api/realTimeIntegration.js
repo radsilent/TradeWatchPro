@@ -381,8 +381,8 @@ export async function getRealTimeVesselData() {
   try {
     console.log('🔄 Importing maritimeAPIs...');
     const { getVesselTrackingData } = await import('./maritimeAPIs.js');
-    console.log('📡 Calling getVesselTrackingData with limit 2000...');
-    const vessels = await getVesselTrackingData(2000); // Request 2000 vessels instead of default
+    console.log('📡 Calling getVesselTrackingData with limit 25000...');
+    const vessels = await getVesselTrackingData(25000); // Request 25000 vessels for full capacity
     if (vessels && vessels.length > 0) {
       console.log(`Got ${vessels.length} vessels from maritime APIs`);
       setCachedData(cacheKey, vessels);

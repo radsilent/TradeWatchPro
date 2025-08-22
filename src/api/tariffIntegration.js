@@ -2946,7 +2946,8 @@ export async function fetchRealTimeTariffData(limit = 500) {
   
   // Try to fetch from our Python API server first
   try {
-    const response = await fetch(`http://localhost:8001/api/tariffs?limit=${limit}`);
+    const { default: config } = await import('../config/environment.js');
+    const response = await fetch(`${config.API_BASE_URL}/api/tariffs?limit=${limit}`);
     if (response.ok) {
       const data = await response.json();
       if (data.tariffs && data.tariffs.length > 0) {

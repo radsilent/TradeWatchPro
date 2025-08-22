@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { validateVesselData } from '@/utils/vesselUtils';
+import config from '@/config/environment';
 import { 
   Search, 
   Ship, 
@@ -83,7 +84,9 @@ export default function VesselTracking() {
         console.log('🔄 Cache-busted refresh:', Date.now());
         
         // DIRECT API CALL - get real vessel data (25,000 vessels with clustering)
-        const response = await fetch('http://localhost:8001/api/vessels?limit=25000&_refresh=' + Date.now());
+        const apiUrl = `${config.API_BASE_URL}/api/vessels?limit=25000&_refresh=${Date.now()}`;
+        console.log('🌐 Fetching vessels from:', apiUrl);
+        const response = await fetch(apiUrl);
         if (!response.ok) {
           throw new Error(`API responded with status: ${response.status}`);
         }
@@ -108,7 +111,9 @@ export default function VesselTracking() {
         // Try fallback direct fetch
         try {
           console.log('🔄 Trying fallback direct fetch...');
-          const fallbackResponse = await fetch('http://localhost:8001/api/vessels?limit=100');
+          const fallbackUrl = `${config.API_BASE_URL}/api/vessels?limit=25000`;
+          console.log('🔄 Fallback API URL:', fallbackUrl);
+          const fallbackResponse = await fetch(fallbackUrl);
           if (fallbackResponse.ok) {
             const fallbackData = await fallbackResponse.json();
             const rawVessels = fallbackData.vessels || [];
@@ -124,8 +129,25 @@ export default function VesselTracking() {
           }
         } catch (fallbackError) {
           console.error('🚨 Fallback also failed:', fallbackError);
-          setVessels([]);
-          setFilteredVessels([]);
+          
+          // Final fallback: Use Vessel entity which has its own fallback logic
+          console.log('🔄 Trying Vessel entity as final fallback...');
+          try {
+            const { Vessel } = await import('@/api/entities');
+            const entityVessels = await Vessel.list(25000);
+            console.log(`✅ Entity fallback: Got ${entityVessels.length} vessels`);
+            
+            // Validate entity vessels as well  
+            const validatedVessels = entityVessels.map(vessel => validateVesselData(vessel));
+            const impactedVessels = validatedVessels.filter(vessel => vessel.impacted === true);
+            
+            setVessels(validatedVessels);
+            setFilteredVessels(impactedVessels);
+          } catch (entityError) {
+            console.error('🚨 Even entity fallback failed:', entityError);
+            setVessels([]);
+            setFilteredVessels([]);
+          }
         }
       } finally {
         setIsLoading(false);
