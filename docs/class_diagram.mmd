@@ -1,0 +1,247 @@
+classDiagram
+    %% Frontend Components
+    class Dashboard {
+        +React.Component
+        +state: DashboardState
+        +disruptions: Array~Disruption~
+        +vessels: Array~Vessel~
+        +ports: Array~Port~
+        +tariffs: Array~Tariff~
+        +loadDashboardData() Promise~void~
+        +generateRealTimeAlerts() Array~Alert~
+        +getCriticalDisruptions() Array~Disruption~
+        +filteredDisruptions() Array~Disruption~
+        +handleDateSliderChange() void
+        +render() JSX.Element
+    }
+    
+    class GlobalMap {
+        +React.Component
+        +props: MapProps
+        +layerVisibility: LayerState
+        +plotPorts(ports: Array~Port~) void
+        +plotDisruptions(disruptions: Array~Disruption~) void
+        +plotVessels(vessels: Array~Vessel~) void
+        +plotTariffs(tariffs: Array~Tariff~) void
+        +handleLayerToggle(layer: string) void
+        +createCustomIcon(type: string) Icon
+        +render() JSX.Element
+    }
+    
+    class VesselTracking {
+        +React.Component
+        +state: VesselState
+        +vessels: Array~Vessel~
+        +filteredVessels: Array~Vessel~
+        +selectedCountry: string
+        +selectedRoute: string
+        +loadVessels() Promise~void~
+        +filterVessels() Array~Vessel~
+        +handleCountryFilter(country: string) void
+        +handleRouteFilter(route: string) void
+        +render() JSX.Element
+    }
+    
+    %% Backend API Server
+    class FastAPIServer {
+        +FastAPI
+        +middleware: CORSMiddleware
+        +rate_limiter: RateLimiter
+        +get_maritime_disruptions(limit: int) Dict
+        +get_vessels(limit: int, refresh: bool) Dict
+        +get_ports(limit: int) Array~Port~
+        +get_tariffs(limit: int) Dict
+        +get_ai_predictions() Dict
+        +health_check() Dict
+        +startup_event() void
+        +shutdown_event() void
+    }
+    
+    %% Data Processing Services
+    class RealTimeDisruptionFetcher {
+        +aiohttp.ClientSession
+        +rss_feeds: Array~string~
+        +fetch_rss_disruptions(limit: int) Array~Disruption~
+        +fetch_world_bank_data() Array~Disruption~
+        +fetch_weather_disruptions() Array~Disruption~
+        +fetch_json_news_apis() Array~Disruption~
+        +filter_high_quality_disruptions(disruptions: Array) Array~Disruption~
+        +infer_coordinates(text: string) Array~float~
+        +calculate_confidence(disruption: Dict) float
+        +enhance_predictive_events(events: Array) Array~Disruption~
+    }
+    
+    class RealAISIntegration {
+        +major_ports: Array~Port~
+        +shipping_routes: Array~Route~
+        +vessel_types: Array~string~
+        +get_real_vessel_data(limit: int) Array~Vessel~
+        +generate_enhanced_vessels(count: int) Array~Vessel~
+        +calculate_vessel_impact(vessel: Vessel) string
+        +select_realistic_route() Route
+        +calculate_realistic_course(start: Coord, end: Coord) float
+        +is_maritime_corridor(lat: float, lng: float) bool
+    }
+    
+    class PostgreSQLDatabase {
+        +connection: psycopg2.Connection
+        +vessels_table: Table
+        +disruptions_table: Table
+        +tariffs_table: Table
+        +ports_table: Table
+        +ai_training_data: Table
+        +store_vessel_data(vessels: Array~Vessel~) void
+        +store_disruption_data(disruptions: Array~Disruption~) void
+        +store_tariff_data(tariffs: Array~Tariff~) void
+        +query_historical_data(query: string) Array~Dict~
+        +get_training_dataset() Array~Dict~
+        +backup_data() void
+    }
+    
+    %% AI/ML Components
+    class TensorFlowAI {
+        +models: Dict~string, Model~
+        +training_pipeline: Pipeline
+        +feature_engineering: FeatureEngine
+        +predict_disruptions(data: Dict) Array~Prediction~
+        +predict_vessel_delays(vessel: Vessel) Prediction
+        +predict_port_congestion(port: Port) Prediction
+        +assess_risk(factors: Array) RiskAssessment
+        +calculate_confidence(prediction: Prediction) float
+        +train_models(training_data: Array) void
+        +update_models() void
+    }
+    
+    %% Validation and Processing
+    class CoordinateValidator {
+        +land_boundaries: GeoData
+        +maritime_zones: GeoData
+        +validate_coordinates(lat: float, lng: float) bool
+        +detect_land_position(coord: Coordinate) bool
+        +ensure_ocean_only(vessels: Array~Vessel~) Array~Vessel~
+        +verify_shipping_routes(route: Route) bool
+        +calculate_distance(start: Coord, end: Coord) float
+        +is_valid_maritime_position(coord: Coordinate) bool
+    }
+    
+    class DataAggregator {
+        +data_sources: Array~DataSource~
+        +cache: CacheManager
+        +aggregate_rss_feeds() Array~Dict~
+        +process_government_apis() Array~Dict~
+        +fetch_weather_data() Array~Dict~
+        +combine_data_sources() Dict
+        +quality_filter(data: Array) Array~Dict~
+        +deduplicate_data(data: Array) Array~Dict~
+        +normalize_data_format(data: Dict) Dict
+    }
+    
+    %% Data Models
+    class Vessel {
+        +id: string
+        +imo: string
+        +mmsi: string
+        +name: string
+        +type: string
+        +coordinates: Array~float~
+        +course: float
+        +speed: float
+        +origin: string
+        +destination: string
+        +flag: string
+        +status: string
+        +last_updated: datetime
+        +impacted: bool
+        +risk_level: string
+    }
+    
+    class Disruption {
+        +id: string
+        +title: string
+        +description: string
+        +type: string
+        +severity: string
+        +coordinates: Array~float~
+        +start_date: datetime
+        +end_date: datetime
+        +confidence: float
+        +event_type: string
+        +sources: Array~Source~
+        +affected_regions: Array~string~
+    }
+    
+    class Port {
+        +id: string
+        +name: string
+        +country: string
+        +coordinates: Array~float~
+        +strategic_importance: int
+        +annual_teu: int
+        +status: string
+        +capacity_utilization: int
+        +depth_meters: int
+        +berths: int
+    }
+    
+    class Tariff {
+        +id: string
+        +name: string
+        +type: string
+        +rate: string
+        +countries: Array~string~
+        +products: Array~string~
+        +effective_date: datetime
+        +economic_impact: string
+        +sources: Array~Source~
+    }
+    
+    %% Relationships
+    Dashboard --> GlobalMap : renders
+    Dashboard --> VesselTracking : navigates
+    GlobalMap --> CoordinateValidator : validates
+    VesselTracking --> GlobalMap : contains
+    
+    Dashboard --> FastAPIServer : requests data
+    VesselTracking --> FastAPIServer : requests vessels
+    GlobalMap --> FastAPIServer : requests all data
+    
+    FastAPIServer --> RealTimeDisruptionFetcher : uses
+    FastAPIServer --> RealAISIntegration : uses
+    FastAPIServer --> PostgreSQLDatabase : queries
+    FastAPIServer --> TensorFlowAI : requests predictions
+    
+    RealTimeDisruptionFetcher --> DataAggregator : uses
+    RealTimeDisruptionFetcher --> CoordinateValidator : validates
+    RealAISIntegration --> CoordinateValidator : validates
+    RealAISIntegration --> PostgreSQLDatabase : stores
+    
+    TensorFlowAI --> PostgreSQLDatabase : trains on
+    DataAggregator --> PostgreSQLDatabase : stores
+    
+    %% Data Models Usage
+    RealAISIntegration --> Vessel : creates
+    RealTimeDisruptionFetcher --> Disruption : creates
+    FastAPIServer --> Port : serves
+    FastAPIServer --> Tariff : serves
+    
+    %% Styling
+    classDef frontend fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef backend fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef database fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef ai fill:#f1f8e9,stroke:#689f38,stroke-width:2px
+    classDef model fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    
+    class Dashboard frontend
+    class GlobalMap frontend
+    class VesselTracking frontend
+    class FastAPIServer backend
+    class RealTimeDisruptionFetcher backend
+    class RealAISIntegration backend
+    class CoordinateValidator backend
+    class DataAggregator backend
+    class PostgreSQLDatabase database
+    class TensorFlowAI ai
+    class Vessel model
+    class Disruption model
+    class Port model
+    class Tariff model
