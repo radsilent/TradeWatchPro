@@ -615,7 +615,13 @@ export default function VesselTracking() {
                 <div><strong>IMO:</strong> ${vessel.imo || 'N/A'}</div>
                 <div><strong>Flag:</strong> ${vessel.flag || 'N/A'}</div>
                 <div><strong>Operator:</strong> ${vessel.operator || vessel.owner}</div>
-                <div><strong>DWT:</strong> ${vessel.dwt ? vessel.dwt.toLocaleString() : 'N/A'}</div>
+                <div><strong>DWT:</strong> ${(() => {
+                  try {
+                    return (vessel && vessel.dwt !== null && vessel.dwt !== undefined && !isNaN(vessel.dwt)) ? vessel.dwt.toLocaleString() : 'N/A';
+                  } catch (e) {
+                    return 'N/A';
+                  }
+                })()}</div>
                 <div><strong>Crew:</strong> ${vessel.crew || vessel.crew_size} people</div>
               </div>
               
@@ -1266,7 +1272,13 @@ export default function VesselTracking() {
 
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">DWT:</span>
-                        <span className="text-sm font-medium text-blue-600">{vessel.dwt ? vessel.dwt.toLocaleString() : 'N/A'}</span>
+                        <span className="text-sm font-medium text-blue-600">{(() => {
+                          try {
+                            return (vessel && vessel.dwt !== null && vessel.dwt !== undefined && !isNaN(vessel.dwt)) ? vessel.dwt.toLocaleString() : 'N/A';
+                          } catch (e) {
+                            return 'N/A';
+                          }
+                        })()}</span>
                       </div>
 
                       {vessel.delayDays > 0 && (
@@ -1327,7 +1339,13 @@ export default function VesselTracking() {
                       </div>
                       
                       <div className="text-center">
-                        <p className="text-sm font-medium text-blue-600">{vessel.dwt ? vessel.dwt.toLocaleString() : 'N/A'} DWT</p>
+                        <p className="text-sm font-medium text-blue-600">{(() => {
+                          try {
+                            return (vessel && vessel.dwt !== null && vessel.dwt !== undefined && !isNaN(vessel.dwt)) ? vessel.dwt.toLocaleString() : 'N/A';
+                          } catch (e) {
+                            return 'N/A';
+                          }
+                        })()} DWT</p>
                         {vessel.delayDays > 0 && (
                           <p className="text-xs text-red-600">{vessel.delayDays} days delay</p>
                         )}

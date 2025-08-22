@@ -632,9 +632,26 @@ async def get_comprehensive_vessels(limit: int = 25000):
             vessels.extend(generated_vessels)
             data_sources.append("Enhanced Generation (Supplement)")
         
+        # Validate and sanitize all vessel data before returning
+        validated_vessels = []
+        for vessel in vessels[:limit]:
+            # Ensure DWT is never null - set to 0 if missing/null
+            if vessel.get('dwt') is None or vessel.get('dwt') == 'null':
+                vessel['dwt'] = 0
+            
+            # Ensure other critical fields are safe
+            if vessel.get('imo') is None:
+                vessel['imo'] = None  # Explicitly set to None for JSON serialization
+            if vessel.get('flag') is None:
+                vessel['flag'] = None
+            if vessel.get('operator') is None:
+                vessel['operator'] = None
+                
+            validated_vessels.append(vessel)
+        
         return {
-            "vessels": vessels[:limit],
-            "total": len(vessels[:limit]),
+            "vessels": validated_vessels,
+            "total": len(validated_vessels),
             "limit": limit,
             "data_source": " + ".join(data_sources) if data_sources else "Enhanced Generation",
             "real_data_percentage": min(100, (len([v for v in vessels if "ais_stream" in v.get("id", "")]) / len(vessels)) * 100) if vessels else 0,
