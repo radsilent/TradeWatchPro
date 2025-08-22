@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { validateVesselData } from '@/utils/vesselUtils';
-import config from '@/config/environment';
+import { validateVesselData } from '../utils/vesselUtils';
+import config from '../config/environment';
 import { 
   Search, 
   Ship, 
@@ -133,7 +133,7 @@ export default function VesselTracking() {
           // Final fallback: Use Vessel entity which has its own fallback logic
           console.log('🔄 Trying Vessel entity as final fallback...');
           try {
-            const { Vessel } = await import('@/api/entities');
+            const { Vessel } = await import('../api/entities');
             const entityVessels = await Vessel.list(25000);
             console.log(`✅ Entity fallback: Got ${entityVessels.length} vessels`);
             
