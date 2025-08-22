@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Tariff } from '@/api/entities';
+import { validateTariffData } from '@/utils/tariffUtils';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -35,8 +36,11 @@ export default function TariffTracking() {
       setIsLoading(true);
       try {
         console.log('Loading real-time tariff data...');
-        const realTariffs = await Tariff.list('-priority', 500); // Get up to 500 tariffs
-        console.log('Loaded tariffs:', realTariffs.length);
+        const rawTariffs = await Tariff.list('-priority', 500); // Get up to 500 tariffs
+        
+        // Validate all tariff data to prevent null errors
+        const realTariffs = rawTariffs.map(tariff => validateTariffData(tariff));
+        console.log('Loaded tariffs:', realTariffs.length, '(validated)');
         setTariffs(realTariffs);
         setFilteredTariffs(realTariffs);
       } catch (error) {
@@ -410,8 +414,10 @@ export default function TariffTracking() {
   ];
 
   useEffect(() => {
-    setTariffs(tariffData);
-    setFilteredTariffs(tariffData);
+    // Validate static tariff data as well
+    const validatedTariffData = tariffData.map(tariff => validateTariffData(tariff));
+    setTariffs(validatedTariffData);
+    setFilteredTariffs(validatedTariffData);
     setIsLoading(false);
   }, []);
 

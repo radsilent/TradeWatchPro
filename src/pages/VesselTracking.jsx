@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { validateVesselData } from '@/utils/vesselUtils';
 import { 
   Search, 
   Ship, 
@@ -88,11 +89,14 @@ export default function VesselTracking() {
         }
         
         const data = await response.json();
-        const allVessels = data.vessels || [];
+        const rawVessels = data.vessels || [];
+        
+        // Validate all vessel data to prevent null errors
+        const allVessels = rawVessels.map(vessel => validateVesselData(vessel));
         
         // SEPARATE: All vessels for map display, impacted vessels for list
         const impactedVessels = allVessels.filter(vessel => vessel.impacted === true);
-        console.log(`✅ Loaded ${allVessels.length} total vessels, ${impactedVessels.length} are impacted`);
+        console.log(`✅ Loaded ${allVessels.length} total vessels, ${impactedVessels.length} are impacted (validated)`);
         
         // Store ALL vessels for map, but filter list to IMPACTED only
         setVessels(allVessels); // All vessels for map
@@ -107,9 +111,12 @@ export default function VesselTracking() {
           const fallbackResponse = await fetch('http://localhost:8001/api/vessels?limit=100');
           if (fallbackResponse.ok) {
             const fallbackData = await fallbackResponse.json();
-            const allVessels = fallbackData.vessels || [];
+            const rawVessels = fallbackData.vessels || [];
+            
+            // Validate fallback vessel data as well
+            const allVessels = rawVessels.map(vessel => validateVesselData(vessel));
             const impactedVessels = allVessels.filter(vessel => vessel.impacted === true);
-            console.log(`✅ Fallback: Loaded ${allVessels.length} total, ${impactedVessels.length} impacted`);
+            console.log(`✅ Fallback: Loaded ${allVessels.length} total, ${impactedVessels.length} impacted (validated)`);
             setVessels(allVessels);
             setFilteredVessels(impactedVessels);
           } else {
