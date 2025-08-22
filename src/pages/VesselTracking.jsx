@@ -100,6 +100,7 @@ export default function VesselTracking() {
         // SEPARATE: All vessels for map display, impacted vessels for list
         const impactedVessels = allVessels.filter(vessel => vessel.impacted === true);
         console.log(`✅ Loaded ${allVessels.length} total vessels, ${impactedVessels.length} are impacted (validated)`);
+        console.log(`🔍 DEBUG: API Response - Total: ${data.total}, Data Source: ${data.data_source}, Real Data %: ${data.real_data_percentage}%`);
         
         // Store ALL vessels for map, but filter list to IMPACTED only
         setVessels(allVessels); // All vessels for map
