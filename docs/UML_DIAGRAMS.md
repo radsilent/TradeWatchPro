@@ -18,7 +18,7 @@ The TradeWatch platform implements a comprehensive layered architecture:
 
 ## Class Architecture Diagram
 
-![Class Architecture](class_diagram_fixed.png)
+![Class Architecture](simple_class_diagram.png)
 
 ### Component Relationships
 The class diagram shows detailed relationships between:

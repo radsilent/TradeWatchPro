@@ -1,0 +1,91 @@
+classDiagram
+    %% Frontend Components
+    class Dashboard {
+        +loadDashboardData()
+        +generateAlerts()
+        +render()
+    }
+    
+    class GlobalMap {
+        +plotPorts()
+        +plotVessels()
+        +plotDisruptions()
+    }
+    
+    class VesselTracking {
+        +loadVessels()
+        +filterVessels()
+        +trackPositions()
+    }
+    
+    %% Backend API
+    class FastAPIServer {
+        +get_vessels()
+        +get_disruptions()
+        +get_ports()
+        +health_check()
+    }
+    
+    %% Services
+    class DisruptionFetcher {
+        +fetch_rss_feeds()
+        +process_incidents()
+    }
+    
+    class VesselService {
+        +get_positions()
+        +validate_coordinates()
+    }
+    
+    class AIEngine {
+        +predict_disruptions()
+        +analyze_patterns()
+    }
+    
+    %% Database
+    class PostgreSQLDB {
+        +store_data()
+        +query_historical()
+    }
+    
+    %% Data Models
+    class Vessel {
+        +id: string
+        +name: string
+        +coordinates: float[]
+        +speed: float
+    }
+    
+    class Disruption {
+        +id: string
+        +title: string
+        +coordinates: float[]
+        +severity: string
+    }
+    
+    class Port {
+        +id: string
+        +name: string
+        +coordinates: float[]
+        +capacity: int
+    }
+    
+    %% Relationships
+    Dashboard --> GlobalMap
+    Dashboard --> VesselTracking
+    Dashboard --> FastAPIServer
+    
+    FastAPIServer --> DisruptionFetcher
+    FastAPIServer --> VesselService
+    FastAPIServer --> AIEngine
+    FastAPIServer --> PostgreSQLDB
+    
+    DisruptionFetcher --> Disruption
+    VesselService --> Vessel
+    FastAPIServer --> Port
+    
+    PostgreSQLDB --> Vessel
+    PostgreSQLDB --> Disruption
+    PostgreSQLDB --> Port
+    
+    AIEngine --> PostgreSQLDB
