@@ -632,6 +632,15 @@ async def get_comprehensive_vessels(limit: int = 25000):
             vessels.extend(generated_vessels)
             data_sources.append("Enhanced Generation (Supplement)")
         
+        # Get current disruptions once for all vessels (performance optimization)
+        current_disruptions = []
+        try:
+            from services.real_time_disruption_fetcher import get_real_time_disruptions
+            current_disruptions = await get_real_time_disruptions(limit=100)
+            logger.info(f"Fetched {len(current_disruptions)} disruptions for impact calculation")
+        except Exception as e:
+            logger.warning(f"Could not fetch disruptions for impact calculation: {e}")
+        
         # Validate and sanitize all vessel data before returning
         validated_vessels = []
         for vessel in vessels[:limit]:
@@ -673,6 +682,29 @@ async def get_comprehensive_vessels(limit: int = 25000):
                 vessel['flag'] = None
             if vessel.get('operator') is None:
                 vessel['operator'] = None
+            
+            # Calculate if vessel is impacted by disruptions
+            try:
+                # Check if vessel is impacted by any active disruptions
+                vessel_impacted = is_vessel_impacted_by_disruptions(
+                    lat_float, lon_float, current_disruptions, impact_radius_km=500
+                )
+                vessel['impacted'] = vessel_impacted
+                
+                # Set risk level and priority based on impact
+                if vessel_impacted:
+                    vessel['riskLevel'] = vessel.get('riskLevel', 'High')
+                    vessel['priority'] = vessel.get('priority', 'High') 
+                else:
+                    vessel['riskLevel'] = vessel.get('riskLevel', 'Low')
+                    vessel['priority'] = vessel.get('priority', 'Medium')
+                    
+            except Exception as disruption_error:
+                logger.debug(f"Could not calculate disruption impact for vessel {vessel.get('id', 'unknown')}: {disruption_error}")
+                # Default to not impacted if calculation fails
+                vessel['impacted'] = False
+                vessel['riskLevel'] = vessel.get('riskLevel', 'Low')
+                vessel['priority'] = vessel.get('priority', 'Medium')
                 
             validated_vessels.append(vessel)
         
