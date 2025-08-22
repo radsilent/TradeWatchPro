@@ -245,16 +245,16 @@ npm run preview
 
 ## 📞 Support & Contact
 
-### Business Inquiries
-- **Company**: VectorStream Systems
-- **Email**: contact@vectorstream.systems
+### VectorStream Systems
+- **Website**: [vectorstream.systems](https://vectorstreamsystems.com)
+- **Email**: streamline@vectorstreamsystems.com
 - **GitHub**: [TradeWatch Repository](https://github.com/radsilent/TradeWatch)
+- **Issue Tracking**: GitHub Issues for bug reports and feature requests
 
 ### Technical Support
 - **Documentation**: [docs/](docs/) directory
 - **API Reference**: [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
 - **Architecture Guide**: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
-- **Issue Tracking**: GitHub Issues for bug reports and feature requests
 
 ## 📄 License
 
@@ -265,3 +265,4 @@ This project is proprietary software developed by VectorStream Systems. All righ
 **TradeWatch Platform v2.1.0** - *Powering Global Trade Intelligence with Real-time Data and AI Analytics*
 
 *Built with ❤️ for the global maritime community*
+*Copyright © 2025 VectorStream Systems. All rights reserved.*
