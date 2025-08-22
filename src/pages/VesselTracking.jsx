@@ -84,7 +84,9 @@ export default function VesselTracking() {
         console.log('🔄 Cache-busted refresh:', Date.now());
         
         // DIRECT API CALL - get real vessel data (25,000 vessels with clustering)
-        const apiUrl = `${config.API_BASE_URL}/api/vessels?limit=25000&_refresh=${Date.now()}`;
+        // Add multiple cache-busting parameters for production
+        const cacheBreaker = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const apiUrl = `${config.API_BASE_URL}/api/vessels?limit=25000&_refresh=${cacheBreaker}&_t=${Date.now()}`;
         console.log('🌐 Fetching vessels from:', apiUrl);
         const response = await fetch(apiUrl);
         if (!response.ok) {
@@ -99,8 +101,11 @@ export default function VesselTracking() {
         
         // SEPARATE: All vessels for map display, impacted vessels for list
         const impactedVessels = allVessels.filter(vessel => vessel.impacted === true);
-        console.log(`✅ Loaded ${allVessels.length} total vessels, ${impactedVessels.length} are impacted (validated)`);
+        const impactPercentage = allVessels.length > 0 ? ((impactedVessels.length / allVessels.length) * 100).toFixed(1) : 0;
+        
+        console.log(`✅ Loaded ${allVessels.length} total vessels, ${impactedVessels.length} are impacted (${impactPercentage}%)`);
         console.log(`🔍 DEBUG: API Response - Total: ${data.total}, Data Source: ${data.data_source}, Real Data %: ${data.real_data_percentage}%`);
+        console.log(`🎯 IMPACT SUMMARY: ${impactedVessels.length} impacted vessels will appear in tracking list`);
         
         // Store ALL vessels for map, but filter list to IMPACTED only
         setVessels(allVessels); // All vessels for map
@@ -1391,4 +1396,3 @@ export default function VesselTracking() {
     </>
   );
 }
-

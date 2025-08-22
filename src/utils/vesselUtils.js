@@ -28,8 +28,8 @@ function isVesselInHighRiskArea(lat, lon) {
         }
     }
     
-    // Also mark some random vessels as impacted for demonstration (10% chance)
-    return Math.random() < 0.1;
+    // Also mark some random vessels as impacted for demonstration (20% chance)
+    return Math.random() < 0.2;
 }
 
 export const validateVesselData = (vessel) => {
@@ -61,12 +61,17 @@ export const validateVesselData = (vessel) => {
     validatedVessel.destination_coords = vessel.destination_coords || null;
     validatedVessel.built_year = vessel.built_year ?? null;
     validatedVessel.route = vessel.route || null;
-    // If backend doesn't provide impact calculation, do basic client-side calculation
-    if (vessel.impacted !== undefined) {
-        validatedVessel.impacted = vessel.impacted;
-    } else {
-        // Fallback: Mark some vessels as impacted based on high-risk areas
-        validatedVessel.impacted = isVesselInHighRiskArea(validatedVessel.latitude, validatedVessel.longitude);
+    // Force client-side impact calculation for production compatibility
+    // Check if backend provided impact status
+    const backendImpacted = vessel.impacted;
+    const clientImpacted = isVesselInHighRiskArea(validatedVessel.latitude, validatedVessel.longitude);
+    
+    // Use backend value if available and true, otherwise use client calculation
+    validatedVessel.impacted = backendImpacted === true ? true : clientImpacted;
+    
+    // Debug logging for production troubleshooting
+    if (typeof window !== 'undefined' && Math.random() < 0.01) { // Log 1% of vessels
+        console.log(`🚢 Vessel Impact Debug: ${vessel.name || vessel.id} - Backend: ${backendImpacted}, Client: ${clientImpacted}, Final: ${validatedVessel.impacted}`);
     }
     
     validatedVessel.riskLevel = vessel.riskLevel || (validatedVessel.impacted ? 'High' : 'Low');
