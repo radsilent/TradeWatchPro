@@ -8,6 +8,7 @@ import { Progress } from '../components/ui/progress';
 import { Brain, TrendingUp, AlertTriangle, Clock, Target, Zap, Activity, MapPin, BarChart3 } from 'lucide-react';
 import LocationAwarePredictions from '../components/dashboard/LocationAwarePredictions';
 import streamingClient from '../api/streamingClient';
+import { fetchCurrentBDI } from '../api/bdiIntegration';
 
 const AIProjections = () => {
   const [projections, setProjections] = useState({
@@ -32,7 +33,7 @@ const AIProjections = () => {
       setIsLoading(true);
       
       // Generate economic projections
-      const economicProjections = generateEconomicProjections();
+      const economicProjections = await generateEconomicProjections();
       
       // Generate risk assessments
       const riskAssessments = generateRiskAssessments();
@@ -75,16 +76,34 @@ const AIProjections = () => {
 
   // Helper functions
 
-  const generateEconomicProjections = () => {
-    const allProjections = [
-      {
-        metric: 'Baltic Dry Index',
-        current: 1927, // Updated with real current value
-        projected: 2085,
-        change: 8.2,
-        timeframe: '7 days',
-        confidence: 0.84
-      },
+  const generateEconomicProjections = async () => {
+    // Get real-time BDI data
+    let bdiProjection = null;
+    try {
+      const bdiData = await fetchCurrentBDI();
+      if (bdiData) {
+        bdiProjection = {
+          metric: 'Baltic Dry Index',
+          current: bdiData.value,
+          projected: bdiData.projected,
+          change: bdiData.projectedChange,
+          timeframe: '7 days',
+          confidence: bdiData.confidence
+        };
+      }
+    } catch (error) {
+      console.log('Could not fetch real-time BDI:', error);
+    }
+    
+    const allProjections = [];
+    
+    // Add BDI projection if available
+    if (bdiProjection) {
+      allProjections.push(bdiProjection);
+    }
+    
+    // Add other projections (these should also be made dynamic)
+    allProjections.push(
       {
         metric: 'Container Freight Rates (Asia-Europe)',
         current: 1840,
@@ -125,7 +144,7 @@ const AIProjections = () => {
         timeframe: '5 days',
         confidence: 0.88
       }
-    ];
+    );
     
     // Filter out predictions with confidence < 80%
     return allProjections.filter(projection => projection.confidence >= 0.8);

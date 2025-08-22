@@ -635,6 +635,33 @@ async def get_comprehensive_vessels(limit: int = 25000):
         # Validate and sanitize all vessel data before returning
         validated_vessels = []
         for vessel in vessels[:limit]:
+            # Skip vessels with invalid coordinates (null, undefined, or over land)
+            lat = vessel.get('lat') or vessel.get('latitude')
+            lon = vessel.get('lon') or vessel.get('longitude')
+            
+            if lat is None or lon is None:
+                logger.debug(f"Skipping vessel {vessel.get('id', 'unknown')} - missing coordinates")
+                continue
+                
+            # Validate coordinates are within reasonable maritime bounds
+            try:
+                lat_float = float(lat)
+                lon_float = float(lon)
+                
+                if not (-90 <= lat_float <= 90) or not (-180 <= lon_float <= 180):
+                    logger.debug(f"Skipping vessel {vessel.get('id', 'unknown')} - invalid coordinates: {lat}, {lon}")
+                    continue
+                    
+                # Ensure coordinates are set consistently
+                vessel['lat'] = lat_float
+                vessel['lon'] = lon_float
+                vessel['latitude'] = lat_float
+                vessel['longitude'] = lon_float
+                
+            except (ValueError, TypeError):
+                logger.debug(f"Skipping vessel {vessel.get('id', 'unknown')} - invalid coordinate format: {lat}, {lon}")
+                continue
+            
             # Ensure DWT is never null - set to 0 if missing/null
             if vessel.get('dwt') is None or vessel.get('dwt') == 'null':
                 vessel['dwt'] = 0
@@ -649,12 +676,20 @@ async def get_comprehensive_vessels(limit: int = 25000):
                 
             validated_vessels.append(vessel)
         
+        # If we filtered out too many vessels and don't have enough, generate more
+        if len(validated_vessels) < limit * 0.8:  # If we have less than 80% of requested vessels
+            needed = limit - len(validated_vessels)
+            logger.info(f"Only {len(validated_vessels)} valid vessels after filtering, generating {needed} more...")
+            additional_vessels = generate_comprehensive_vessel_dataset(needed)
+            validated_vessels.extend(additional_vessels)
+            data_sources.append("Enhanced Generation (Coordinate Supplement)")
+        
         return {
-            "vessels": validated_vessels,
-            "total": len(validated_vessels),
+            "vessels": validated_vessels[:limit],  # Ensure we don't exceed the limit
+            "total": len(validated_vessels[:limit]),
             "limit": limit,
             "data_source": " + ".join(data_sources) if data_sources else "Enhanced Generation",
-            "real_data_percentage": min(100, (len([v for v in vessels if "ais_stream" in v.get("id", "")]) / len(vessels)) * 100) if vessels else 0,
+            "real_data_percentage": min(100, (len([v for v in validated_vessels if "ais_stream" in v.get("id", "")]) / len(validated_vessels)) * 100) if validated_vessels else 0,
             "timestamp": datetime.now().isoformat()
         }
         

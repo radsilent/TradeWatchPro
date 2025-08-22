@@ -152,13 +152,16 @@ export default function Dashboard() {
   }, [disruptions, selectedDateRange]);
 
   const loadDashboardData = useCallback(async () => {
-    // Only set loading to true if we don't have any data yet
-    if (ports.length === 0 && disruptions.length === 0 && tariffs.length === 0) {
-      setIsLoading(true);
-    }
-    
     try {
-      console.log('Loading fresh dashboard data...');
+      console.log('🎯 Starting dashboard data load...');
+      
+      // Only set loading to true if we don't have any data yet
+      if (ports.length === 0 && disruptions.length === 0 && tariffs.length === 0) {
+        console.log('🎯 No existing data, showing loading indicator');
+        setIsLoading(true);
+      } else {
+        console.log('🎯 Refreshing existing data in background');
+      }
       
       // Reduce data on mobile for better performance
       const dataLimits = isMobile ? { ports: 50, disruptions: 20, tariffs: 100 } : { ports: 200, disruptions: 100, tariffs: 500 };
