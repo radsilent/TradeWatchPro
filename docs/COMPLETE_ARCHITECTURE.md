@@ -8,7 +8,7 @@ TradeWatch is a comprehensive Global Trade Intelligence Platform providing real-
 
 ## System Architecture Overview
 
-![System Architecture](system_architecture.png)
+![System Architecture](system_architecture_fixed.png)
 
 *Figure 1: TradeWatch Complete System Architecture - End-to-end data flow from external sources through AI processing to frontend visualization*
 
@@ -55,7 +55,7 @@ TradeWatch is a comprehensive Global Trade Intelligence Platform providing real-
 
 ## Component Class Architecture
 
-![Class Architecture](class_architecture.png)
+![Class Architecture](class_diagram_fixed.png)
 
 *Figure 2: TradeWatch Class Diagram - Detailed component relationships and data models*
 

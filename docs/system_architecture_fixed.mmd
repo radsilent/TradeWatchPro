@@ -1,0 +1,95 @@
+graph TD
+    subgraph "Frontend Layer"
+        A["🖥️ React Dashboard<br/>Real-time visualization<br/>5000+ vessels, 122+ disruptions"] 
+        B["🗺️ Global Map Component<br/>Leaflet.js integration<br/>Interactive maritime overlays"]
+        C["🚢 Vessel Tracking<br/>5000+ vessel monitoring<br/>Ocean-only positioning"]
+        D["⚠️ Disruption Timeline<br/>122+ live incidents<br/>Source validation"]
+        E["🤖 AI Projections<br/>TensorFlow predictions<br/>80%+ accuracy"]
+    end
+    
+    subgraph "API Gateway"
+        F["🔌 FastAPI Server<br/>Port 8001<br/>CORS middleware"]
+        G["🛡️ Security Layer<br/>Input validation<br/>Rate limiting"]
+        H["📊 Health Monitor<br/>98.9% uptime<br/>Performance metrics"]
+    end
+    
+    subgraph "Data Processing"
+        I["📡 Data Fetcher<br/>15+ RSS feeds<br/>Quality filtering"]
+        J["🌐 API Aggregator<br/>Government APIs<br/>Weather services"]
+        K["⚓ AIS Integration<br/>Vessel positioning<br/>Route validation"]
+        L["📍 Coordinate Validator<br/>Land detection<br/>Maritime corridors"]
+    end
+    
+    subgraph "AI/ML Pipeline"
+        M["🧠 TensorFlow Models<br/>Disruption forecasting<br/>Pattern recognition"]
+        N["📈 Feature Engineering<br/>Data transformation<br/>Historical analysis"]
+        O["🎯 Prediction Engine<br/>Real-time forecasting<br/>Confidence scoring"]
+        P["📚 Training Pipeline<br/>Model optimization<br/>Continuous learning"]
+    end
+    
+    subgraph "Database Layer"
+        Q["🗄️ PostgreSQL<br/>ACID compliance<br/>Real-time sync"]
+        R["🚢 Vessels Table<br/>5000+ records<br/>Position tracking"]
+        S["⚠️ Disruptions Table<br/>122+ incidents<br/>Forecast data"]
+        T["🏭 Ports Table<br/>200+ major ports<br/>Operational status"]
+        U["💰 Tariffs Table<br/>500+ trade policies<br/>Impact analysis"]
+    end
+    
+    subgraph "External Sources"
+        V["📰 Maritime RSS<br/>gCaptain, Splash247<br/>FreightWaves"]
+        W["🏛️ Government APIs<br/>WTO, USTR<br/>EU Commission"]
+        X["🌦️ Weather Services<br/>NOAA data<br/>Marine forecasts"]
+        Y["📺 News Services<br/>BBC, Reuters<br/>Real-time alerts"]
+    end
+
+    %% Connections - Vertical flow for better PDF layout
+    A --> F
+    B --> F
+    C --> F
+    D --> F
+    E --> F
+    
+    F --> G
+    F --> H
+    
+    F --> I
+    F --> J
+    
+    I --> K
+    J --> K
+    K --> L
+    
+    L --> Q
+    I --> Q
+    J --> Q
+    
+    Q --> R
+    Q --> S
+    Q --> T
+    Q --> U
+    
+    M --> N
+    N --> O
+    O --> P
+    M --> Q
+    O --> F
+    
+    V --> I
+    W --> J
+    X --> J
+    Y --> I
+    
+    %% Styling
+    classDef frontend fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
+    classDef api fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef processing fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef ai fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef database fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
+    classDef external fill:#f1f8e9,stroke:#689f38,stroke-width:2px,color:#000
+    
+    class A,B,C,D,E frontend
+    class F,G,H api
+    class I,J,K,L processing
+    class M,N,O,P ai
+    class Q,R,S,T,U database
+    class V,W,X,Y external
