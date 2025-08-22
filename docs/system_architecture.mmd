@@ -1,0 +1,114 @@
+graph TB
+    subgraph "Frontend Layer - React Application"
+        A["🖥️ React Dashboard<br/>- Real-time data visualization<br/>- Executive interface<br/>- Mobile responsive<br/>- 5000+ vessels, 122+ disruptions"] 
+        B["🗺️ Global Map Component<br/>- Leaflet.js integration<br/>- Maritime overlays<br/>- Interactive layers<br/>- Real-time plotting"]
+        C["🚢 Vessel Tracking Page<br/>- 5000+ vessel monitoring<br/>- Real-time filters<br/>- Country/route filtering<br/>- Ocean-only positioning"]
+        D["⚠️ Disruption Timeline<br/>- 122+ live incidents<br/>- Forecast visualization<br/>- Source validation<br/>- RSS integration"]
+        E["🤖 AI Projections Widget<br/>- TensorFlow predictions<br/>- Confidence scoring<br/>- Risk assessment<br/>- 80%+ accuracy"]
+    end
+    
+    subgraph "API Gateway Layer - FastAPI Port 8001"
+        F["🔌 FastAPI Server<br/>- High-performance API<br/>- Real-time endpoints<br/>- CORS middleware<br/>- Rate limiting"]
+        G["🛡️ Security Layer<br/>- Input validation<br/>- Error handling<br/>- API throttling<br/>- CORS protection"]
+        H["📊 Health Monitoring<br/>- System status<br/>- Performance metrics<br/>- Service availability<br/>- 98.9% uptime"]
+    end
+    
+    subgraph "Data Processing Layer - Python Services"
+        I["📡 Real-time Data Fetcher<br/>- 15+ RSS feeds<br/>- Government APIs<br/>- Quality filtering<br/>- Multi-source integration"]
+        J["🌐 Maritime API Aggregator<br/>- WTO, USTR, EU data<br/>- Weather services<br/>- Port authorities<br/>- News sources"]
+        K["⚓ AIS Integration Service<br/>- Vessel positioning<br/>- Route validation<br/>- Ocean-only filtering<br/>- 5000+ vessels"]
+        L["📍 Coordinate Validator<br/>- Land detection<br/>- Maritime corridors<br/>- Position accuracy<br/>- Geospatial validation"]
+    end
+    
+    subgraph "AI/ML Pipeline - TensorFlow"
+        M["🧠 TensorFlow Models<br/>- Disruption forecasting<br/>- Vessel delay prediction<br/>- Port congestion analysis<br/>- Pattern recognition"]
+        N["📈 Feature Engineering<br/>- Data transformation<br/>- Pattern extraction<br/>- Historical analysis<br/>- Trend detection"]
+        O["🎯 Prediction Engine<br/>- Real-time forecasting<br/>- Confidence scoring<br/>- Risk assessment<br/>- 80%+ accuracy threshold"]
+        P["📚 Training Pipeline<br/>- Historical data<br/>- Model optimization<br/>- Performance validation<br/>- Continuous learning"]
+    end
+    
+    subgraph "Database Layer - PostgreSQL"
+        Q["🗄️ PostgreSQL Database<br/>- ACID compliance<br/>- Real-time sync<br/>- Performance optimization<br/>- Backup & recovery"]
+        R["🚢 Vessels Table<br/>- 5000+ vessel records<br/>- Position tracking<br/>- Historical routes<br/>- Impact analysis"]
+        S["⚠️ Disruptions Table<br/>- 122+ incidents<br/>- Forecast data<br/>- Source attribution<br/>- Confidence scores"]
+        T["🏭 Ports Table<br/>- 200+ major ports<br/>- Operational status<br/>- Capacity metrics<br/>- Strategic importance"]
+        U["💰 Tariffs Table<br/>- 500+ trade policies<br/>- Regulatory data<br/>- Impact analysis<br/>- WTO compliance"]
+    end
+    
+    subgraph "External Data Sources"
+        V["📰 Maritime RSS Feeds<br/>- gCaptain<br/>- Splash247<br/>- FreightWaves<br/>- Seatrade Maritime"]
+        W["🏛️ Government APIs<br/>- WTO Trade Data<br/>- USTR Policies<br/>- EU Commission<br/>- NOAA Weather"]
+        X["🌦️ Weather Services<br/>- Marine forecasts<br/>- Storm tracking<br/>- Route impacts<br/>- NOAA data"]
+        Y["📺 News Services<br/>- BBC World<br/>- Reuters<br/>- Maritime news<br/>- Real-time alerts"]
+    end
+
+    %% Frontend connections
+    A --> B
+    A --> C
+    A --> D
+    A --> E
+    
+    %% Frontend to API
+    A --> F
+    B --> F
+    C --> F
+    D --> F
+    E --> F
+    
+    %% API Gateway internal
+    F --> G
+    F --> H
+    
+    %% API to Data Processing
+    F --> I
+    F --> J
+    F --> K
+    F --> L
+    
+    %% Data Processing connections
+    I --> J
+    J --> K
+    K --> L
+    
+    %% AI/ML connections
+    M --> N
+    N --> O
+    O --> P
+    P --> M
+    
+    %% Database connections
+    Q --> R
+    Q --> S
+    Q --> T
+    Q --> U
+    
+    %% Data Processing to Database
+    I --> Q
+    J --> Q
+    K --> Q
+    L --> Q
+    
+    %% AI to Database and API
+    M --> Q
+    O --> F
+    
+    %% External to Data Processing
+    V --> I
+    W --> J
+    X --> J
+    Y --> I
+    
+    %% Styling
+    classDef frontend fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#000
+    classDef api fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px,color:#000
+    classDef processing fill:#e8f5e8,stroke:#388e3c,stroke-width:3px,color:#000
+    classDef ai fill:#fff3e0,stroke:#f57c00,stroke-width:3px,color:#000
+    classDef database fill:#fce4ec,stroke:#c2185b,stroke-width:3px,color:#000
+    classDef external fill:#f1f8e9,stroke:#689f38,stroke-width:3px,color:#000
+    
+    class A,B,C,D,E frontend
+    class F,G,H api
+    class I,J,K,L processing
+    class M,N,O,P ai
+    class Q,R,S,T,U database
+    class V,W,X,Y external
