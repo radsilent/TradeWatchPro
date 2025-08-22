@@ -90,6 +90,12 @@ export default function VesselTracking() {
         const apiUrl = `${config.API_BASE_URL}/api/vessels?limit=${vesselLimit}&_refresh=${cacheBreaker}&_t=${Date.now()}`;
         console.log(`🚢 Using ${vesselLimit} vessels for ${isDev ? 'development' : 'production'}`);
         console.log('🌐 Fetching vessels from:', apiUrl);
+        console.log('🔧 DEBUG INFO:', {
+          hostname: window.location.hostname,
+          isDev: isDev,
+          API_BASE_URL: config.API_BASE_URL,
+          vesselLimit: vesselLimit
+        });
         const response = await fetch(apiUrl);
         if (!response.ok) {
           throw new Error(`API responded with status: ${response.status}`);
