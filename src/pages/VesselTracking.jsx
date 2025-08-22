@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import 'leaflet.markercluster';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -66,6 +69,7 @@ export default function VesselTracking() {
   const [showAllOnMap, setShowAllOnMap] = useState(false);
   const [map, setMap] = useState(null);
   const [markersLayer, setMarkersLayer] = useState(null);
+  const [clusterGroups, setClusterGroups] = useState({});
   const [isMobile, setIsMobile] = useState(false);
   const mapRef = useRef(null);
 
@@ -77,8 +81,8 @@ export default function VesselTracking() {
         console.log('🚢 Loading vessel data from API...');
         console.log('🔄 Cache-busted refresh:', Date.now());
         
-        // DIRECT API CALL - get real vessel data (minimum 300 vessels)
-        const response = await fetch('http://localhost:8001/api/vessels?limit=5000&_refresh=' + Date.now());
+        // DIRECT API CALL - get real vessel data (25,000 vessels with clustering)
+        const response = await fetch('http://localhost:8001/api/vessels?limit=25000&_refresh=' + Date.now());
         if (!response.ok) {
           throw new Error(`API responded with status: ${response.status}`);
         }
@@ -352,12 +356,90 @@ export default function VesselTracking() {
           attribution: '© OpenStreetMap contributors'
         }).addTo(leafletMap);
         
-        console.log('🗺️ CREATING MARKER LAYER...');
-        const markerGroup = L.layerGroup().addTo(leafletMap);
+        console.log('🗺️ CREATING CLUSTER GROUPS...');
+        
+        // Create cluster groups for different vessel statuses
+        const clusterOptions = {
+          maxClusterRadius: 50,
+          disableClusteringAtZoom: 10,
+          spiderfyOnMaxZoom: true,
+          showCoverageOnHover: false,
+          zoomToBoundsOnClick: true
+        };
+        
+        const clusters = {
+          // Impacted vessels
+          emergency: L.markerClusterGroup({
+            ...clusterOptions,
+            iconCreateFunction: function(cluster) {
+              return L.divIcon({
+                html: `<div class="cluster-emergency">${cluster.getChildCount()}</div>`,
+                className: 'custom-cluster-icon',
+                iconSize: [40, 40]
+              });
+            }
+          }),
+          critical: L.markerClusterGroup({
+            ...clusterOptions,
+            iconCreateFunction: function(cluster) {
+              return L.divIcon({
+                html: `<div class="cluster-critical">${cluster.getChildCount()}</div>`,
+                className: 'custom-cluster-icon',
+                iconSize: [40, 40]
+              });
+            }
+          }),
+          impactedOther: L.markerClusterGroup({
+            ...clusterOptions,
+            iconCreateFunction: function(cluster) {
+              return L.divIcon({
+                html: `<div class="cluster-impacted">${cluster.getChildCount()}</div>`,
+                className: 'custom-cluster-icon',
+                iconSize: [40, 40]
+              });
+            }
+          }),
+          // Normal vessels
+          highRisk: L.markerClusterGroup({
+            ...clusterOptions,
+            iconCreateFunction: function(cluster) {
+              return L.divIcon({
+                html: `<div class="cluster-high-risk">${cluster.getChildCount()}</div>`,
+                className: 'custom-cluster-icon',
+                iconSize: [40, 40]
+              });
+            }
+          }),
+          mediumRisk: L.markerClusterGroup({
+            ...clusterOptions,
+            iconCreateFunction: function(cluster) {
+              return L.divIcon({
+                html: `<div class="cluster-medium-risk">${cluster.getChildCount()}</div>`,
+                className: 'custom-cluster-icon',
+                iconSize: [40, 40]
+              });
+            }
+          }),
+          lowRisk: L.markerClusterGroup({
+            ...clusterOptions,
+            iconCreateFunction: function(cluster) {
+              return L.divIcon({
+                html: `<div class="cluster-low-risk">${cluster.getChildCount()}</div>`,
+                className: 'custom-cluster-icon',
+                iconSize: [40, 40]
+              });
+            }
+          })
+        };
+        
+        // Add all cluster groups to map
+        Object.values(clusters).forEach(clusterGroup => {
+          leafletMap.addLayer(clusterGroup);
+        });
         
         console.log('🗺️ SETTING STATE...');
         setMap(leafletMap);
-        setMarkersLayer(markerGroup);
+        setClusterGroups(clusters);
         
         console.log('✅ MAP COMPLETE!');
         
@@ -376,11 +458,11 @@ export default function VesselTracking() {
     console.log('🚢 mapRef after mount:', !!mapRef.current);
   }, []);
 
-  // Update map markers
+  // Update map markers with clustering (with error handling)
   useEffect(() => {
-    console.log(`🗺️ Map update triggered - map: ${!!map}, markersLayer: ${!!markersLayer}, vessels: ${vessels.length}`);
-    if (!map || !markersLayer) {
-      console.log(`⚠️ Map update skipped - map: ${!!map}, markersLayer: ${!!markersLayer}`);
+    console.log(`🗺️ Map update triggered - map: ${!!map}, clusterGroups: ${!!clusterGroups}, vessels: ${vessels.length}`);
+    if (!map || !clusterGroups || Object.keys(clusterGroups).length === 0) {
+      console.log(`⚠️ Map update skipped - map: ${!!map}, clusterGroups: ${Object.keys(clusterGroups || {}).length}`);
       return;
     }
 
@@ -388,60 +470,72 @@ export default function VesselTracking() {
       try {
         console.log('🔍 CRITICAL DEBUG: updateMarkers function called');
         console.log('🔍 Map object exists:', !!map);
-        console.log('🔍 MarkersLayer exists:', !!markersLayer);
+        console.log('🔍 ClusterGroups exists:', !!clusterGroups);
         
-        if (!markersLayer) {
-          console.log('❌ No markersLayer, cannot plot vessels');
-          return;
-        }
+        // Clear all cluster groups
+        Object.values(clusterGroups).forEach(clusterGroup => {
+          clusterGroup.clearLayers();
+        });
+        console.log('🔍 All cluster groups cleared successfully');
         
-        markersLayer.clearLayers();
-        console.log('🔍 Markers cleared successfully');
+        // Show ALL vessels using clustering (no limit needed with clustering)
+        const vesselsToShow = vessels;
+        console.log(`🗺️ Processing ALL ${vesselsToShow.length} vessels with clustering`);
 
-        // Display ALL vessels on map, limit for performance
-        const vesselsToDisplay = vessels.slice(0, mapDisplayLimit);
         console.log(`🗺️ VESSEL TRACKING MAP DEBUG:`);
         console.log(`- Total vessels loaded: ${vessels.length}`);
-        console.log(`- Vessels to display on map: ${vesselsToDisplay.length}`);
-        console.log(`- Map display limit: ${mapDisplayLimit}`);
-        if (vessels.length > 0) {
-          console.log(`- First vessel data:`, vessels[0]);
-          console.log(`- First vessel coordinates:`, vessels[0].coordinates);
+        console.log(`- Vessels to display on map: ${vesselsToShow.length}`);
+        
+        if (vesselsToShow.length > 0) {
+          console.log(`- First vessel data:`, vesselsToShow[0]);
+          console.log(`- First vessel coordinates:`, vesselsToShow[0].coordinates);
         }
         
-        console.log(`🔍 Starting to process ${vesselsToDisplay.length} vessels for map plotting`);
+        console.log(`🔍 Starting to process ${vesselsToShow.length} vessels for map plotting`);
         
-        vesselsToDisplay.forEach((vessel, index) => {
-          console.log(`🔍 Processing vessel ${index + 1}/${vesselsToDisplay.length}: ${vessel.name}`);
-          
+        vesselsToShow.forEach((vessel, index) => {
           // Extract coordinates from various possible formats
           let lat, lng;
           if (vessel.coordinates) {
             if (Array.isArray(vessel.coordinates) && vessel.coordinates.length === 2) {
               [lat, lng] = vessel.coordinates;
-              console.log(`🔍 Vessel ${vessel.name} - extracted coords from array: [${lat}, ${lng}]`);
             } else if (vessel.coordinates.lat && vessel.coordinates.lng) {
               lat = vessel.coordinates.lat;
               lng = vessel.coordinates.lng;
-              console.log(`🔍 Vessel ${vessel.name} - extracted coords from object: [${lat}, ${lng}]`);
             }
           } else if (vessel.latitude && vessel.longitude) {
             lat = vessel.latitude;
             lng = vessel.longitude;
-            console.log(`🔍 Vessel ${vessel.name} - extracted coords from lat/lng fields: [${lat}, ${lng}]`);
           }
           
           // Skip vessels without valid coordinates
           if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-            console.log(`❌ Vessel ${vessel.name} SKIPPED - invalid coordinates: lat=${lat}, lng=${lng}`);
             return;
           }
-          
-          console.log(`✅ Vessel ${vessel.name} - coordinates validated: [${lat}, ${lng}]`);
           
           const course = vessel.course || 0;
           const priority = vessel.priority || (vessel.impacted ? 'High' : 'Medium');
           const size = priority === 'Critical' ? 16 : priority === 'High' ? 14 : 12;
+          
+          // Determine cluster group based on vessel status
+          let clusterGroup;
+          if (vessel.impacted) {
+            if (vessel.status === 'Emergency' || vessel.riskLevel === 'Emergency') {
+              clusterGroup = clusterGroups.emergency;
+            } else if (vessel.status === 'Critical' || vessel.riskLevel === 'Critical' || vessel.priority === 'Critical') {
+              clusterGroup = clusterGroups.critical;
+            } else {
+              clusterGroup = clusterGroups.impactedOther;
+            }
+          } else {
+            if (vessel.riskLevel === 'High') {
+              clusterGroup = clusterGroups.highRisk;
+            } else if (vessel.riskLevel === 'Medium') {
+              clusterGroup = clusterGroups.mediumRisk;
+            } else {
+              clusterGroup = clusterGroups.lowRisk;
+            }
+          }
           
           const getVesselColor = (vessel) => {
             if (vessel.impacted) {
@@ -511,10 +605,10 @@ export default function VesselTracking() {
                 <div><strong>Speed:</strong> ${vessel.speed} kts</div>
                 <div><strong>Course:</strong> ${course}°</div>
                 <div><strong>MMSI:</strong> ${vessel.mmsi}</div>
-                <div><strong>IMO:</strong> ${vessel.imo}</div>
-                <div><strong>Flag:</strong> ${vessel.flag}</div>
+                <div><strong>IMO:</strong> ${vessel.imo || 'N/A'}</div>
+                <div><strong>Flag:</strong> ${vessel.flag || 'N/A'}</div>
                 <div><strong>Operator:</strong> ${vessel.operator || vessel.owner}</div>
-                <div><strong>DWT:</strong> ${vessel.dwt.toLocaleString()}</div>
+                <div><strong>DWT:</strong> ${vessel.dwt ? vessel.dwt.toLocaleString() : 'N/A'}</div>
                 <div><strong>Crew:</strong> ${vessel.crew || vessel.crew_size} people</div>
               </div>
               
@@ -538,8 +632,14 @@ export default function VesselTracking() {
           });
 
           marker.on('click', () => setSelectedVessel(vessel));
-          markersLayer.addLayer(marker);
-          console.log(`✅ Vessel ${vessel.name} marker added to map layer`);
+          
+          // Add marker to appropriate cluster group
+          if (clusterGroup) {
+            clusterGroup.addLayer(marker);
+          } else {
+            // Fallback to low risk if no cluster group determined
+            clusterGroups.lowRisk.addLayer(marker);
+          }
         });
       } catch (error) {
         console.error('Failed to update markers:', error);
@@ -547,7 +647,7 @@ export default function VesselTracking() {
     };
 
     updateMarkers();
-  }, [map, markersLayer, vessels, mapDisplayLimit]);
+  }, [map, clusterGroups, vessels]);
 
   // Filter vessels based on search and filters (LIST shows only IMPACTED vessels)
   useEffect(() => {
@@ -558,8 +658,8 @@ export default function VesselTracking() {
       filtered = filtered.filter(vessel => 
         vessel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         vessel.mmsi.includes(searchTerm) ||
-        vessel.imo.includes(searchTerm) ||
-        vessel.operator.toLowerCase().includes(searchTerm.toLowerCase())
+        (vessel.imo && vessel.imo.includes(searchTerm)) ||
+        (vessel.operator && vessel.operator.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
@@ -655,7 +755,98 @@ export default function VesselTracking() {
   }
 
   return (
-    <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
+    <>
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-cluster-icon {
+          background: transparent !important;
+          border: none !important;
+        }
+        .cluster-emergency {
+          background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+          color: white !important;
+          border-radius: 50% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 40px !important;
+          height: 40px !important;
+          font-weight: bold !important;
+          font-size: 12px !important;
+          box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4) !important;
+          border: 2px solid #fff !important;
+        }
+        .cluster-critical {
+          background: linear-gradient(135deg, #ea580c, #c2410c) !important;
+          color: white !important;
+          border-radius: 50% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 40px !important;
+          height: 40px !important;
+          font-weight: bold !important;
+          font-size: 12px !important;
+          box-shadow: 0 2px 8px rgba(234, 88, 12, 0.4) !important;
+          border: 2px solid #fff !important;
+        }
+        .cluster-impacted {
+          background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+          color: white !important;
+          border-radius: 50% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 40px !important;
+          height: 40px !important;
+          font-weight: bold !important;
+          font-size: 12px !important;
+          box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4) !important;
+          border: 2px solid #fff !important;
+        }
+        .cluster-high-risk {
+          background: linear-gradient(135deg, #059669, #047857) !important;
+          color: white !important;
+          border-radius: 50% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 40px !important;
+          height: 40px !important;
+          font-weight: bold !important;
+          font-size: 12px !important;
+          box-shadow: 0 2px 8px rgba(5, 150, 105, 0.4) !important;
+          border: 2px solid #fff !important;
+        }
+        .cluster-medium-risk {
+          background: linear-gradient(135deg, #0891b2, #0e7490) !important;
+          color: white !important;
+          border-radius: 50% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 40px !important;
+          height: 40px !important;
+          font-weight: bold !important;
+          font-size: 12px !important;
+          box-shadow: 0 2px 8px rgba(8, 145, 178, 0.4) !important;
+          border: 2px solid #fff !important;
+        }
+        .cluster-low-risk {
+          background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+          color: white !important;
+          border-radius: 50% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 40px !important;
+          height: 40px !important;
+          font-weight: bold !important;
+          font-size: 12px !important;
+          box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4) !important;
+          border: 2px solid #fff !important;
+        }
+      `}} />
+      <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -704,18 +895,19 @@ export default function VesselTracking() {
         </div>
       </div>
 
-      {/* Performance Info */}
+      {/* Clustering Info */}
       {vessels.length > 100 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-xs">!</span>
+            <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-xs">✓</span>
             </div>
-            <h3 className="text-blue-800 font-medium">Performance Mode Active</h3>
+            <h3 className="text-green-800 font-medium">Smart Clustering Active</h3>
           </div>
-          <p className="text-blue-700 text-sm mt-1">
-            Showing {Math.min(mapDisplayLimit, totalVessels)} of {totalVessels} vessels on map. 
-            List below shows only {impactedCount} impacted vessels. Use dropdown to adjust map display.
+          <p className="text-green-700 text-sm mt-1">
+            Displaying ALL {vessels.length.toLocaleString()} vessels efficiently using intelligent clustering. 
+            Map shows {filteredVessels.length} impacted vessels in the list below. 
+            Zoom in to expand clusters and see individual vessels.
           </p>
         </div>
       )}
@@ -753,8 +945,8 @@ export default function VesselTracking() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Tracked Vessels</p>
-                <p className="text-3xl font-bold text-blue-600">{totalVessels}</p>
-                <p className="text-xs text-gray-500 mt-1">Key maritime vessels</p>
+                <p className="text-3xl font-bold text-blue-600">{impactedCount}</p>
+                <p className="text-xs text-gray-500 mt-1">Impacted vessels being tracked</p>
               </div>
               <Ship className="h-12 w-12 text-blue-500" />
             </div>
@@ -868,10 +1060,39 @@ export default function VesselTracking() {
       {/* Global Vessel Map */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Globe className="h-5 w-5" />
-            Global Vessel Positions
-            <Badge variant="secondary">{filteredVessels.length} vessels</Badge>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Global Vessel Positions - All {vessels.length.toLocaleString()} Vessels Clustered
+              <Badge variant="secondary">{filteredVessels.length} impacted listed</Badge>
+            </div>
+            {/* Cluster Legend */}
+            <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full" style={{background: 'linear-gradient(135deg, #dc2626, #b91c1c)'}}></div>
+                <span>Emergency</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full" style={{background: 'linear-gradient(135deg, #ea580c, #c2410c)'}}></div>
+                <span>Critical</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full" style={{background: 'linear-gradient(135deg, #f59e0b, #d97706)'}}></div>
+                <span>Impacted</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full" style={{background: 'linear-gradient(135deg, #059669, #047857)'}}></div>
+                <span>High Risk</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full" style={{background: 'linear-gradient(135deg, #0891b2, #0e7490)'}}></div>
+                <span>Medium Risk</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full" style={{background: 'linear-gradient(135deg, #6366f1, #4f46e5)'}}></div>
+                <span>Low Risk</span>
+              </div>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
@@ -1038,7 +1259,7 @@ export default function VesselTracking() {
 
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">DWT:</span>
-                        <span className="text-sm font-medium text-blue-600">{vessel.dwt.toLocaleString()}</span>
+                        <span className="text-sm font-medium text-blue-600">{vessel.dwt ? vessel.dwt.toLocaleString() : 'N/A'}</span>
                       </div>
 
                       {vessel.delayDays > 0 && (
@@ -1099,7 +1320,7 @@ export default function VesselTracking() {
                       </div>
                       
                       <div className="text-center">
-                        <p className="text-sm font-medium text-blue-600">{vessel.dwt.toLocaleString()} DWT</p>
+                        <p className="text-sm font-medium text-blue-600">{vessel.dwt ? vessel.dwt.toLocaleString() : 'N/A'} DWT</p>
                         {vessel.delayDays > 0 && (
                           <p className="text-xs text-red-600">{vessel.delayDays} days delay</p>
                         )}
@@ -1119,5 +1340,6 @@ export default function VesselTracking() {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 }

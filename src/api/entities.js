@@ -182,7 +182,7 @@ export const Tariff = {
 
 // Real-time Vessel entity using live data
 export const Vessel = {
-  list: async (limit = 1000) => {
+  list: async (limit = 25000) => {
     try {
       console.log(`🚢 Vessel.list called with limit: ${limit}`);
       const vessels = await getRealTimeVesselData();

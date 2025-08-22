@@ -2,6 +2,7 @@
 """
 Enhanced Real Data API Server for TradeWatch
 Provides comprehensive datasets while connecting to authoritative sources
+Includes real-time AIS vessel data from AIS Stream
 """
 
 from fastapi import FastAPI, HTTPException
@@ -23,6 +24,18 @@ import math
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Import AIS Stream integration
+try:
+    from services.aisstream_integration import initialize_aisstream_integration, get_real_aisstream_vessels
+    # Initialize with the provided API key
+    AIS_STREAM_API_KEY = "7334566177a1515215529f311fb52613023efb11"
+    initialize_aisstream_integration(AIS_STREAM_API_KEY)
+    AIS_STREAM_AVAILABLE = True
+    logger.info("✅ AIS Stream integration initialized successfully")
+except ImportError as e:
+    logger.warning(f"⚠️ AIS Stream integration not available: {e}")
+    AIS_STREAM_AVAILABLE = False
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     """
@@ -578,53 +591,111 @@ async def root():
     }
 
 @app.get("/api/vessels")
-async def get_comprehensive_vessels(limit: int = 3000):
-    """Get real vessel data from AIS sources"""
+async def get_comprehensive_vessels(limit: int = 25000):
+    """Get real vessel data from AIS Stream and other sources"""
     try:
         logger.info(f"Fetching {limit} real vessel records from AIS sources...")
         
-        # Import the real AIS integration
-        from services.real_ais_integration import get_real_vessel_positions
+        vessels = []
+        data_sources = []
         
-        vessels = await get_real_vessel_positions(limit)
+        # First try AIS Stream (real-time data) - prioritize for high capacity
+        if AIS_STREAM_AVAILABLE:
+            try:
+                # Request a significant portion from AIS Stream for real data
+                ais_target = min(limit // 3, 10000)  # Up to 10k from AIS Stream
+                ais_vessels = await get_real_aisstream_vessels(ais_target)
+                if ais_vessels:
+                    vessels.extend(ais_vessels)
+                    data_sources.append("AIS Stream (Real-time)")
+                    logger.info(f"✅ Fetched {len(ais_vessels)} vessels from AIS Stream")
+            except Exception as e:
+                logger.warning(f"AIS Stream fetch failed: {e}")
+        
+        # Supplement with other AIS sources if needed
+        if len(vessels) < limit:
+            try:
+                from services.real_ais_integration import get_real_vessel_positions
+                remaining = limit - len(vessels)
+                additional_vessels = await get_real_vessel_positions(remaining)
+                if additional_vessels:
+                    vessels.extend(additional_vessels)
+                    data_sources.append("Maritime Route Intelligence")
+                    logger.info(f"✅ Fetched {len(additional_vessels)} additional vessels")
+            except Exception as e:
+                logger.warning(f"Additional AIS sources failed: {e}")
+        
+        # If still not enough data, use enhanced generation as last resort
+        if len(vessels) < (limit * 0.1):  # If we have less than 10% of requested vessels
+            logger.info("Insufficient real data, falling back to enhanced generation...")
+            generated_vessels = generate_comprehensive_vessel_dataset(limit)
+            vessels.extend(generated_vessels)
+            data_sources.append("Enhanced Generation (Supplement)")
         
         return {
-            "vessels": vessels,
-            "total": len(vessels),
+            "vessels": vessels[:limit],
+            "total": len(vessels[:limit]),
             "limit": limit,
-            "data_source": "Real AIS data with maritime route intelligence",
+            "data_source": " + ".join(data_sources) if data_sources else "Enhanced Generation",
+            "real_data_percentage": min(100, (len([v for v in vessels if "ais_stream" in v.get("id", "")]) / len(vessels)) * 100) if vessels else 0,
             "timestamp": datetime.now().isoformat()
         }
+        
     except Exception as e:
         logger.error(f"Error fetching real vessel data: {e}")
-        # Fallback to enhanced generation if real data fails
-        logger.info("Falling back to enhanced vessel generation...")
+        # Final fallback to enhanced generation
+        logger.info("Complete fallback to enhanced vessel generation...")
         vessels = generate_comprehensive_vessel_dataset(limit)
         return {
             "vessels": vessels,
             "total": len(vessels),
             "limit": limit,
-            "data_source": "Enhanced generation (real AIS unavailable)",
+            "data_source": "Enhanced Generation (All real sources failed)",
+            "real_data_percentage": 0,
             "timestamp": datetime.now().isoformat()
         }
 
 @app.get("/api/tariffs")
-async def get_comprehensive_tariffs(limit: int = 500):
-    """Get hundreds of comprehensive tariff records"""
+async def get_real_tariffs_endpoint(limit: int = 500):
+    """Get real tariff data from official government APIs - NO HARDCODING"""
     try:
-        logger.info(f"Generating {limit} comprehensive tariff records...")
-        tariffs = generate_comprehensive_tariff_dataset(limit)
+        logger.info(f"Fetching {limit} REAL tariff records from government APIs...")
+        
+        # Import and use credible tariff scraper
+        from services.credible_tariff_scraper import get_credible_tariffs
+        
+        tariffs = await get_credible_tariffs(limit)
+        
+        if not tariffs:
+            logger.warning("No real tariff data available from APIs")
+            return {
+                "tariffs": [],
+                "total": 0,
+                "limit": limit,
+                "data_source": "Real government APIs - no data available",
+                "timestamp": datetime.now().isoformat(),
+                "message": "Real tariff APIs unavailable - no fallback to fake data"
+            }
         
         return {
             "tariffs": tariffs,
             "total": len(tariffs),
             "limit": limit,
-            "data_source": "Enhanced realistic trade data based on official patterns",
-            "timestamp": datetime.now().isoformat()
+            "data_source": "CREDIBLE government sources: USTR, World Bank, WTO, EU TARIC, Canada CBSA",
+            "timestamp": datetime.now().isoformat(),
+            "sources": list(set([source['name'] for tariff in tariffs for source in tariff.get('sources', [])]))
         }
     except Exception as e:
-        logger.error(f"Error generating tariff data: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate tariff data")
+        logger.error(f"Error fetching real tariff data: {e}")
+        # Return empty instead of fake data
+        return {
+            "tariffs": [],
+            "total": 0,
+            "limit": limit,
+            "data_source": "Real government APIs - error occurred",
+            "timestamp": datetime.now().isoformat(),
+            "error": "API connection failed - no fallback to fake data"
+        }
 
 @app.get("/api/maritime-disruptions")
 async def get_comprehensive_disruptions():
