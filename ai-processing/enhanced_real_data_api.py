@@ -691,10 +691,10 @@ async def get_comprehensive_vessels(limit: int = 25000):
                 )
                 vessel['impacted'] = vessel_impacted
                 
-                # Set risk level and priority based on impact
+                # Set risk level and priority based on impact (override existing values)
                 if vessel_impacted:
-                    vessel['riskLevel'] = vessel.get('riskLevel', 'High')
-                    vessel['priority'] = vessel.get('priority', 'High') 
+                    vessel['riskLevel'] = 'High'
+                    vessel['priority'] = 'High' 
                 else:
                     vessel['riskLevel'] = vessel.get('riskLevel', 'Low')
                     vessel['priority'] = vessel.get('priority', 'Medium')
@@ -905,6 +905,41 @@ async def health_check():
         "tariff_capacity": "500+ tariffs",
         "port_capacity": "200+ major ports"
     }
+
+@app.get("/api/diagnostic")
+async def diagnostic_check():
+    """Diagnostic endpoint to verify disruption impact calculation"""
+    try:
+        # Test disruption fetching
+        from services.real_time_disruption_fetcher import get_real_time_disruptions
+        disruptions = await get_real_time_disruptions(limit=10)
+        active_disruptions = [d for d in disruptions if d.get("status") == "active"]
+        
+        # Test vessel data with impact calculation
+        test_vessels = await get_comprehensive_vessels(limit=10)
+        impacted_vessels = [v for v in test_vessels["vessels"] if v.get("impacted") == True]
+        
+        return {
+            "status": "diagnostic_complete",
+            "timestamp": datetime.now().isoformat(),
+            "disruptions": {
+                "total": len(disruptions),
+                "active": len(active_disruptions),
+                "has_coordinates": len([d for d in active_disruptions if "coordinates" in d])
+            },
+            "vessels": {
+                "total": test_vessels["total"],
+                "impacted": len(impacted_vessels),
+                "impact_percentage": round((len(impacted_vessels) / test_vessels["total"]) * 100, 1) if test_vessels["total"] > 0 else 0
+            },
+            "sample_impacted_vessel": impacted_vessels[0] if impacted_vessels else None
+        }
+    except Exception as e:
+        return {
+            "status": "diagnostic_error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 if __name__ == "__main__":
     import uvicorn
