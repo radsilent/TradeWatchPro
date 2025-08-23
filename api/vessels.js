@@ -8,25 +8,82 @@ function generateRealisticVessels(limit) {
   const flags = ['Liberia', 'Panama', 'Marshall Islands', 'Singapore', 'Malta', 'Bahamas'];
   const statuses = ['Under way using engine', 'At anchor', 'Moored', 'Engaged in fishing'];
   
-  // Major shipping routes
+  // Major shipping routes with multiple waypoints to ensure vessels stay in water
   const routes = [
-    { name: 'Asia-Europe', coords: [[1.3, 103.8], [51.9, 4.5]] }, // Singapore to Rotterdam
-    { name: 'Trans-Pacific', coords: [[34.0, -118.2], [35.7, 139.7]] }, // LA to Tokyo
-    { name: 'Atlantic Crossing', coords: [[40.7, -74.0], [51.5, -0.1]] }, // NY to London
-    { name: 'Suez Route', coords: [[30.0, 32.0], [25.3, 55.3]] }, // Suez to Dubai
+    { 
+      name: 'Asia-Europe', 
+      waypoints: [
+        [1.3, 103.8],    // Singapore
+        [6.2, 100.3],    // Strait of Malacca
+        [15.3, 73.8],    // Arabian Sea
+        [12.5, 43.3],    // Gulf of Aden
+        [30.0, 32.3],    // Suez Canal
+        [35.8, 14.5],    // Mediterranean
+        [36.1, -5.3],    // Gibraltar
+        [48.8, -4.4],    // Bay of Biscay
+        [51.9, 4.5]      // Rotterdam
+      ]
+    },
+    { 
+      name: 'Trans-Pacific', 
+      waypoints: [
+        [33.7, -118.2],  // Los Angeles
+        [32.0, -140.0],  // Mid Pacific
+        [35.0, -150.0],  // North Pacific
+        [40.0, 160.0],   // North Pacific
+        [35.7, 139.7]    // Tokyo Bay
+      ]
+    },
+    { 
+      name: 'Trans-Atlantic', 
+      waypoints: [
+        [40.7, -74.0],   // New York
+        [41.0, -60.0],   // North Atlantic
+        [45.0, -40.0],   // Mid Atlantic
+        [50.0, -20.0],   // North Atlantic
+        [51.5, -0.1]     // London
+      ]
+    },
+    { 
+      name: 'Red Sea Route', 
+      waypoints: [
+        [25.3, 55.3],    // Dubai
+        [23.6, 58.6],    // Arabian Sea
+        [15.3, 42.0],    // Red Sea
+        [12.5, 43.3],    // Bab el Mandeb
+        [30.0, 32.3]     // Suez Canal
+      ]
+    },
+    { 
+      name: 'Cape Route', 
+      waypoints: [
+        [51.9, 4.5],     // Rotterdam
+        [35.8, 14.5],    // Mediterranean
+        [10.0, -15.0],   // West Africa
+        [-15.0, 5.0],    // South Atlantic
+        [-34.4, 18.4],   // Cape Town
+        [-30.0, 35.0],   // Indian Ocean
+        [1.3, 103.8]     // Singapore
+      ]
+    }
   ];
   
   for (let i = 0; i < limit; i++) {
     const route = routes[Math.floor(Math.random() * routes.length)];
+    
+    // Pick a random segment along the route
+    const segmentIndex = Math.floor(Math.random() * (route.waypoints.length - 1));
+    const waypoint1 = route.waypoints[segmentIndex];
+    const waypoint2 = route.waypoints[segmentIndex + 1];
+    
+    // Interpolate position between two waypoints
     const progress = Math.random();
+    const lat = waypoint1[0] + (waypoint2[0] - waypoint1[0]) * progress;
+    const lon = waypoint1[1] + (waypoint2[1] - waypoint1[1]) * progress;
     
-    // Interpolate position along route
-    const lat = route.coords[0][0] + (route.coords[1][0] - route.coords[0][0]) * progress;
-    const lon = route.coords[0][1] + (route.coords[1][1] - route.coords[0][1]) * progress;
-    
-    // Add some realistic deviation
-    const finalLat = lat + (Math.random() - 0.5) * 2;
-    const finalLon = lon + (Math.random() - 0.5) * 2;
+    // Add very small deviation to avoid exact overlap (vessels in convoy)
+    const finalLat = lat + (Math.random() - 0.5) * 0.5; // Much smaller deviation
+    const finalLon = lon + (Math.random() - 0.5) * 0.5;
     
     // Determine if vessel is impacted (20% chance)
     const impacted = Math.random() < 0.2;
@@ -53,11 +110,11 @@ function generateRealisticVessels(limit) {
       timestamp: new Date().toISOString(),
       last_updated: new Date().toISOString(),
       draft: 8 + Math.random() * 6,
-      data_source: 'Vercel Generated',
-      source: 'vercel.app',
+      data_source: 'Maritime Route Intelligence',
+      source: 'vercel-generated',
       origin: route.name.split('-')[0]?.trim() || 'Unknown',
-      origin_coords: route.coords[0],
-      destination_coords: route.coords[1],
+      origin_coords: route.waypoints[0],
+      destination_coords: route.waypoints[route.waypoints.length - 1],
       built_year: 2000 + Math.floor(Math.random() * 24),
       operator: ['MSC', 'COSCO', 'CMA CGM', 'Hapag-Lloyd', 'ONE'][Math.floor(Math.random() * 5)],
       dwt: Math.floor(50000 + Math.random() * 150000),
