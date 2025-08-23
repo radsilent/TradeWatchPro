@@ -353,7 +353,10 @@ def is_maritime_relevant(text: str) -> bool:
         'meta', 'facebook', 'instagram', 'ai chat', 'artificial intelligence',
         'children', 'sensual', 'celebrity', 'entertainment',
         'sports', 'cryptocurrency', 'bitcoin', 'gaming', 'covid vaccine',
-        'automobile', 'tesla', 'real estate', 'restaurant', 'retail'
+        'automobile', 'tesla', 'real estate', 'restaurant', 'retail',
+        'injector', 'fuel injector', 'trucking', 'truck driver', 'small carrier',
+        'diesel engine', 'engine repair', 'auto repair', 'mechanic', 'automotive',
+        'brake', 'transmission', 'tire', 'motor vehicle', 'highway', 'roadway'
     ]
     
     if any(keyword in text_lower for keyword in exclude_keywords):
