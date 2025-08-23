@@ -1,5 +1,5 @@
 // Environment configuration for TradeWatch - Vercel optimized
-export const config = {
+const config = {
   // Environment detection
   ENVIRONMENT: import.meta.env.VITE_ENVIRONMENT || 'development',
   
