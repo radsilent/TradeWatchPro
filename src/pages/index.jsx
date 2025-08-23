@@ -10,6 +10,7 @@ import TradeRoutes from "./TradeRoutes.jsx";
 import LivePortView from "./LivePortView.jsx";
 import MobileAppDownload from "./MobileAppDownload.jsx";
 import AIProjections from "./AIProjections.jsx";
+import AIDashboard from "./AIDashboard.jsx";
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -36,6 +37,8 @@ const PAGES = {
     MobileAppDownload: MobileAppDownload,
     
     AIProjections: AIProjections,
+    
+    AIDashboard: AIDashboard,
     
 }
 

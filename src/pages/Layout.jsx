@@ -81,6 +81,11 @@ const navigationItems = [
     url: createPageUrl("AIProjections"),
     icon: Brain,
   },
+  {
+    title: "AI Dashboard",
+    url: createPageUrl("AIDashboard"),
+    icon: Brain,
+  },
 ];
 
 export default function Layout({ children, currentPageName }) {
