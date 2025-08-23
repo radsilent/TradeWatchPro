@@ -1,0 +1,802 @@
+[
+  {
+    "id": "ais_stream_367469190",
+    "mmsi": "367469190",
+    "name": "VESSEL_367469190",
+    "coordinates": [
+      39.093428333333335,
+      -84.50228166666668
+    ],
+    "lat": 39.093428333333335,
+    "lon": -84.50228166666668,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "United States",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_255915956",
+    "mmsi": "255915956",
+    "name": "VESSEL_255915956",
+    "coordinates": [
+      34.28417666666667,
+      33.58436
+    ],
+    "lat": 34.28417666666667,
+    "lon": 33.58436,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Portugal",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_341478001",
+    "mmsi": "341478001",
+    "name": "VESSEL_341478001",
+    "coordinates": [
+      34.901516666666666,
+      35.87074166666666
+    ],
+    "lat": 34.901516666666666,
+    "lon": 35.87074166666666,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Saint Kitts and Nevis",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_636016549",
+    "mmsi": "636016549",
+    "name": "VESSEL_636016549",
+    "coordinates": [
+      52.127388333333336,
+      3.9372183333333335
+    ],
+    "lat": 52.127388333333336,
+    "lon": 3.9372183333333335,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Liberia",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_244602000",
+    "mmsi": "244602000",
+    "name": "VESSEL_244602000",
+    "coordinates": [
+      54.182735,
+      12.101668333333333
+    ],
+    "lat": 54.182735,
+    "lon": 12.101668333333333,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Netherlands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_240176300",
+    "mmsi": "240176300",
+    "name": "VESSEL_240176300",
+    "coordinates": [
+      37.880361666666666,
+      23.72058333333333
+    ],
+    "lat": 37.880361666666666,
+    "lon": 23.72058333333333,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Greece",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_211200690",
+    "mmsi": "211200690",
+    "name": "VESSEL_211200690",
+    "coordinates": [
+      53.344028333333334,
+      7.187451666666666
+    ],
+    "lat": 53.344028333333334,
+    "lon": 7.187451666666666,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Germany",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_244820561",
+    "mmsi": "244820561",
+    "name": "VESSEL_244820561",
+    "coordinates": [
+      52.37754833333334,
+      4.913518333333333
+    ],
+    "lat": 52.37754833333334,
+    "lon": 4.913518333333333,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Netherlands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_316040355",
+    "mmsi": "316040355",
+    "name": "VESSEL_316040355",
+    "coordinates": [
+      42.32946833333333,
+      -80.40354666666667
+    ],
+    "lat": 42.32946833333333,
+    "lon": -80.40354666666667,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Canada",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_622120121",
+    "mmsi": "622120121",
+    "name": "VESSEL_622120121",
+    "coordinates": [
+      33.00946666666667,
+      32.378435
+    ],
+    "lat": 33.00946666666667,
+    "lon": 32.378435,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Egypt",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_211444890",
+    "mmsi": "211444890",
+    "name": "VESSEL_211444890",
+    "coordinates": [
+      53.801368333333336,
+      9.388621666666667
+    ],
+    "lat": 53.801368333333336,
+    "lon": 9.388621666666667,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Germany",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_265009000",
+    "mmsi": "265009000",
+    "name": "VESSEL_265009000",
+    "coordinates": [
+      58.265195,
+      10.801021666666665
+    ],
+    "lat": 58.265195,
+    "lon": 10.801021666666665,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Sweden",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_228417700",
+    "mmsi": "228417700",
+    "name": "VESSEL_228417700",
+    "coordinates": [
+      49.63310666666666,
+      -0.37350833333333333
+    ],
+    "lat": 49.63310666666666,
+    "lon": -0.37350833333333333,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "France",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_265832560",
+    "mmsi": "265832560",
+    "name": "VESSEL_265832560",
+    "coordinates": [
+      59.30148,
+      18.678863333333332
+    ],
+    "lat": 59.30148,
+    "lon": 18.678863333333332,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Sweden",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_247294200",
+    "mmsi": "247294200",
+    "name": "VESSEL_247294200",
+    "coordinates": [
+      45.653985,
+      13.768283333333333
+    ],
+    "lat": 45.653985,
+    "lon": 13.768283333333333,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Italy",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_367182120",
+    "mmsi": "367182120",
+    "name": "VESSEL_367182120",
+    "coordinates": [
+      29.925459999999998,
+      -89.94463666666667
+    ],
+    "lat": 29.925459999999998,
+    "lon": -89.94463666666667,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "United States",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_265586090",
+    "mmsi": "265586090",
+    "name": "VESSEL_265586090",
+    "coordinates": [
+      57.61998333333334,
+      11.927423333333333
+    ],
+    "lat": 57.61998333333334,
+    "lon": 11.927423333333333,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Sweden",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_230174140",
+    "mmsi": "230174140",
+    "name": "VESSEL_230174140",
+    "coordinates": [
+      60.43507833333333,
+      22.20576
+    ],
+    "lat": 60.43507833333333,
+    "lon": 22.20576,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Finland",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_271001175",
+    "mmsi": "271001175",
+    "name": "VESSEL_271001175",
+    "coordinates": [
+      40.990424999999995,
+      28.945126666666667
+    ],
+    "lat": 40.990424999999995,
+    "lon": 28.945126666666667,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Turkey",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_305847000",
+    "mmsi": "305847000",
+    "name": "VESSEL_305847000",
+    "coordinates": [
+      37.905006666666665,
+      23.03348833333333
+    ],
+    "lat": 37.905006666666665,
+    "lon": 23.03348833333333,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Antigua and Barbuda",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_538009106",
+    "mmsi": "538009106",
+    "name": "VESSEL_538009106",
+    "coordinates": [
+      49.05369833333334,
+      -4.869841666666667
+    ],
+    "lat": 49.05369833333334,
+    "lon": -4.869841666666667,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Marshall Islands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_245700000",
+    "mmsi": "245700000",
+    "name": "VESSEL_245700000",
+    "coordinates": [
+      53.179833333333335,
+      5.415731666666667
+    ],
+    "lat": 53.179833333333335,
+    "lon": 5.415731666666667,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Netherlands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_253736000",
+    "mmsi": "253736000",
+    "name": "VESSEL_253736000",
+    "coordinates": [
+      53.84986,
+      8.915583333333332
+    ],
+    "lat": 53.84986,
+    "lon": 8.915583333333332,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Luxembourg",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_311001201",
+    "mmsi": "311001201",
+    "name": "VESSEL_311001201",
+    "coordinates": [
+      57.251290000000004,
+      -133.99797
+    ],
+    "lat": 57.251290000000004,
+    "lon": -133.99797,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Bahamas",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_244750688",
+    "mmsi": "244750688",
+    "name": "VESSEL_244750688",
+    "coordinates": [
+      52.380520000000004,
+      4.907516666666667
+    ],
+    "lat": 52.380520000000004,
+    "lon": 4.907516666666667,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Netherlands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_241590000",
+    "mmsi": "241590000",
+    "name": "VESSEL_241590000",
+    "coordinates": [
+      37.92066833333333,
+      23.053778333333334
+    ],
+    "lat": 37.92066833333333,
+    "lon": 23.053778333333334,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Greece",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_242173100",
+    "mmsi": "242173100",
+    "name": "VESSEL_242173100",
+    "coordinates": [
+      23.569928333333333,
+      -16.060916666666667
+    ],
+    "lat": 23.569928333333333,
+    "lon": -16.060916666666667,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Morocco",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_224239000",
+    "mmsi": "224239000",
+    "name": "VESSEL_224239000",
+    "coordinates": [
+      28.093481666666666,
+      -14.865465
+    ],
+    "lat": 28.093481666666666,
+    "lon": -14.865465,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Spain",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_242281400",
+    "mmsi": "242281400",
+    "name": "VESSEL_242281400",
+    "coordinates": [
+      24.357491666666665,
+      -15.64412
+    ],
+    "lat": 24.357491666666665,
+    "lon": -15.64412,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Morocco",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_368258740",
+    "mmsi": "368258740",
+    "name": "VESSEL_368258740",
+    "coordinates": [
+      48.62626,
+      -123.16258333333333
+    ],
+    "lat": 48.62626,
+    "lon": -123.16258333333333,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "United States",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_244750205",
+    "mmsi": "244750205",
+    "name": "VESSEL_244750205",
+    "coordinates": [
+      51.81816,
+      5.4111199999999995
+    ],
+    "lat": 51.81816,
+    "lon": 5.4111199999999995,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Netherlands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_249512000",
+    "mmsi": "249512000",
+    "name": "VESSEL_249512000",
+    "coordinates": [
+      45.57981333333333,
+      -1.0460033333333334
+    ],
+    "lat": 45.57981333333333,
+    "lon": -1.0460033333333334,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Malta",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_244730941",
+    "mmsi": "244730941",
+    "name": "VESSEL_244730941",
+    "coordinates": [
+      52.37684,
+      4.931445
+    ],
+    "lat": 52.37684,
+    "lon": 4.931445,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Netherlands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_244660711",
+    "mmsi": "244660711",
+    "name": "VESSEL_244660711",
+    "coordinates": [
+      53.052933333333335,
+      5.402716666666667
+    ],
+    "lat": 53.052933333333335,
+    "lon": 5.402716666666667,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Netherlands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_636093032",
+    "mmsi": "636093032",
+    "name": "VESSEL_636093032",
+    "coordinates": [
+      -26.710145,
+      153.25384666666665
+    ],
+    "lat": -26.710145,
+    "lon": 153.25384666666665,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Liberia",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_538002747",
+    "mmsi": "538002747",
+    "name": "VESSEL_538002747",
+    "coordinates": [
+      40.221671666666666,
+      -9.39175
+    ],
+    "lat": 40.221671666666666,
+    "lon": -9.39175,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Marshall Islands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_235098051",
+    "mmsi": "235098051",
+    "name": "VESSEL_235098051",
+    "coordinates": [
+      51.32955666666667,
+      1.4231916666666666
+    ],
+    "lat": 51.32955666666667,
+    "lon": 1.4231916666666666,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "United Kingdom",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_227806500",
+    "mmsi": "227806500",
+    "name": "VESSEL_227806500",
+    "coordinates": [
+      52.377515,
+      4.930735
+    ],
+    "lat": 52.377515,
+    "lon": 4.930735,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "France",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_246030000",
+    "mmsi": "246030000",
+    "name": "VESSEL_246030000",
+    "coordinates": [
+      52.937153333333335,
+      5.0335833333333335
+    ],
+    "lat": 52.937153333333335,
+    "lon": 5.0335833333333335,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Netherlands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_265687160",
+    "mmsi": "265687160",
+    "name": "VESSEL_265687160",
+    "coordinates": [
+      59.286804999999994,
+      18.705218333333335
+    ],
+    "lat": 59.286804999999994,
+    "lon": 18.705218333333335,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Sweden",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_367766260",
+    "mmsi": "367766260",
+    "name": "VESSEL_367766260",
+    "coordinates": [
+      40.64499,
+      -74.12325666666668
+    ],
+    "lat": 40.64499,
+    "lon": -74.12325666666668,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "United States",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_319106900",
+    "mmsi": "319106900",
+    "name": "VESSEL_319106900",
+    "coordinates": [
+      -29.751763333333333,
+      31.134766666666668
+    ],
+    "lat": -29.751763333333333,
+    "lon": 31.134766666666668,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Cayman Islands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_244750137",
+    "mmsi": "244750137",
+    "name": "VESSEL_244750137",
+    "coordinates": [
+      51.89340333333334,
+      4.41404
+    ],
+    "lat": 51.89340333333334,
+    "lon": 4.41404,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Netherlands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_265530460",
+    "mmsi": "265530460",
+    "name": "VESSEL_265530460",
+    "coordinates": [
+      58.90096166666667,
+      17.953278333333333
+    ],
+    "lat": 58.90096166666667,
+    "lon": 17.953278333333333,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Sweden",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_258170360",
+    "mmsi": "258170360",
+    "name": "VESSEL_258170360",
+    "coordinates": [
+      55.68178833333333,
+      12.595368333333333
+    ],
+    "lat": 55.68178833333333,
+    "lon": 12.595368333333333,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Norway",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_205337590",
+    "mmsi": "205337590",
+    "name": "VESSEL_205337590",
+    "coordinates": [
+      51.31451166666667,
+      4.318863333333334
+    ],
+    "lat": 51.31451166666667,
+    "lon": 4.318863333333334,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Belgium",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_316005416",
+    "mmsi": "316005416",
+    "name": "VESSEL_316005416",
+    "coordinates": [
+      48.417606666666664,
+      -123.44992333333333
+    ],
+    "lat": 48.417606666666664,
+    "lon": -123.44992333333333,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Canada",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_244670878",
+    "mmsi": "244670878",
+    "name": "VESSEL_244670878",
+    "coordinates": [
+      52.36481166666667,
+      5.630885
+    ],
+    "lat": 52.36481166666667,
+    "lon": 5.630885,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Netherlands",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_265513350",
+    "mmsi": "265513350",
+    "name": "VESSEL_265513350",
+    "coordinates": [
+      59.71913,
+      19.069943333333335
+    ],
+    "lat": 59.71913,
+    "lon": 19.069943333333335,
+    "impacted": false,
+    "riskLevel": "Low",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Sweden",
+    "type": "Unknown Vessel Type"
+  },
+  {
+    "id": "ais_stream_244394718",
+    "mmsi": "244394718",
+    "name": "VESSEL_244394718",
+    "coordinates": [
+      51.807768333333335,
+      4.866468333333333
+    ],
+    "lat": 51.807768333333335,
+    "lon": 4.866468333333333,
+    "impacted": true,
+    "riskLevel": "High",
+    "data_source": "AIS Stream (Real-time)",
+    "flag": "Netherlands",
+    "type": "Unknown Vessel Type"
+  }
+]

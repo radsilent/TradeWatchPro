@@ -18,15 +18,9 @@ const config = {
      window.location.hostname === 'trade-watch-omega.vercel.app'),
 };
 
-// API URL configuration - simple production fix
-if (config.IS_PRODUCTION) {
-  // In production, use relative paths to Vercel API functions
-  config.API_BASE_URL = '';
-  console.log('🌐 Production mode detected, using relative API paths');
-} else {
-  // Development mode - use localhost backend
-  config.API_BASE_URL = 'http://localhost:8001';
-  console.log('🛠️ Development mode, using API URL:', config.API_BASE_URL);
-}
+// API URL configuration - Use Cloudflare Worker for REAL data
+// Always use Cloudflare Worker which has your real AIS Stream integration
+config.API_BASE_URL = 'https://tradewatch-backend.collaromatt.workers.dev';
+console.log('🌐 Using Cloudflare Worker with REAL AIS Stream data:', config.API_BASE_URL);
 
 export default config;

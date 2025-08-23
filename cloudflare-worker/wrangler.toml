@@ -1,0 +1,8 @@
+name = "tradewatch-backend"
+main = "src/index.js"
+compatibility_date = "2023-12-01"
+
+[vars]
+AIS_STREAM_API_KEY = "7334566177a1515215529f311fb52613023efb11"
+
+# R2 bucket removed for now

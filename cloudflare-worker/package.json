@@ -1,0 +1,17 @@
+{
+  "name": "tradewatch-cloudflare-worker",
+  "version": "1.0.0",
+  "description": "TradeWatch backend on Cloudflare Workers with real AIS Stream integration",
+  "main": "src/index.js",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "preview": "wrangler preview"
+  },
+  "keywords": ["cloudflare", "workers", "ais", "maritime", "tradewatch"],
+  "author": "TradeWatch",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
