@@ -2,7 +2,7 @@
 function setCORSHeaders(req, res) {
   const origin = req.headers.origin;
   const allowedOrigins = [
-    'https://your-vercel-domain.vercel.app',
+    'https://trade-watch-omega.vercel.app',
     'https://your-custom-domain.com',
     'http://localhost:3000',
     'http://localhost:5173',
