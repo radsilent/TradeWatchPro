@@ -78,9 +78,9 @@ export default function VesselTracking() {
   // Load vessel data from API
   useEffect(() => {
     const loadVesselData = async () => {
-      // Use smaller limit for development performance, full 25k for production
+      // Use full 25k for all deployments - we have real data and clustering now
       const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const vesselLimit = isDev ? 5000 : 25000; // 5k for dev, 25k for production
+      const vesselLimit = 25000; // Always use 25k vessels - we have real AIS data and efficient clustering
       
       try {
         setIsLoading(true);
