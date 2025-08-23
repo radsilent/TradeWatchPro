@@ -36,13 +36,18 @@ function generateRealisticDisruptions(limit) {
   ];
   
   for (let i = 0; i < limit; i++) {
-    const location = locations[Math.floor(Math.random() * locations.length)];
+    // Distribute disruptions evenly across locations to avoid clustering
+    const locationIndex = i % locations.length;
+    const location = locations[locationIndex];
     const eventTemplate = eventTemplates[Math.floor(Math.random() * eventTemplates.length)];
     const severity = severities[Math.floor(Math.random() * severities.length)];
     
-    // Add some coordinate variation
-    const lat = location.coords[0] + (Math.random() - 0.5) * 4;
-    const lon = location.coords[1] + (Math.random() - 0.5) * 4;
+    // Add controlled coordinate variation to spread disruptions
+    const variationRadius = 2; // Smaller radius for less overlap
+    const angle = (Math.random() * 2 * Math.PI);
+    const distance = Math.random() * variationRadius;
+    const lat = location.coords[0] + (Math.cos(angle) * distance);
+    const lon = location.coords[1] + (Math.sin(angle) * distance);
     
     const startDate = new Date();
     startDate.setHours(startDate.getHours() - Math.random() * 72); // Started 0-72 hours ago
@@ -50,8 +55,11 @@ function generateRealisticDisruptions(limit) {
     const endDate = new Date(startDate);
     endDate.setHours(endDate.getHours() + 12 + Math.random() * 48); // Lasts 12-60 hours
     
+    // Create unique disruption to avoid duplicates
+    const uniqueId = `vercel_disruption_${Date.now()}_${i.toString().padStart(4, '0')}`;
+    
     disruptions.push({
-      id: `vercel_disruption_${i.toString().padStart(4, '0')}`,
+      id: uniqueId,
       title: `${location.name}: ${eventTemplate}`,
       description: `Maritime disruption affecting ${location.name} shipping operations. ${eventTemplate} causing potential delays and route diversions for commercial vessels.`,
       severity: severity,
