@@ -105,176 +105,33 @@ async function handleVessels(request, env, corsHeaders) {
     console.error('Backend proxy failed:', error);
   }
   
-  // Fallback: Fetch REAL AIS Stream data directly from Cloudflare Worker
-  console.log('🔄 Fetching REAL AIS Stream data directly from Cloudflare Worker');
+  // NO MOCK DATA - Only real AIS Stream data from local backend
+  console.log('❌ Cannot generate mock data - user requires REAL AIS Stream data only');
   
-  try {
-    const realAISData = await fetchRealAISStreamData(env.AIS_STREAM_API_KEY, limit);
-    if (realAISData && realAISData.length > 0) {
-      console.log(`✅ Got ${realAISData.length} REAL vessels from AIS Stream API`);
-      return new Response(JSON.stringify({
-        vessels: realAISData,
-        total: realAISData.length,
-        limit: limit,
-        data_source: "AIS Stream (Real-time API)",
-        real_data_percentage: 100,
-        actual_vessels: realAISData.length,
-        timestamp: new Date().toISOString(),
-        backend_status: "cloudflare_direct_ais_stream"
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-  } catch (aisError) {
-    console.error('❌ Direct AIS Stream fetch failed:', aisError);
-  }
-  
-  // Final fallback: Generate realistic vessel data based on real AIS patterns
-  console.log('🔄 Generating realistic vessel data based on real AIS patterns');
-  
-  const realisticVessels = generateRealisticVesselData(limit);
-  const impactedCount = realisticVessels.filter(v => v.impacted).length;
+  // Final fallback: Return error to force frontend to use local backend with REAL AIS data
+  console.log('❌ All data sources failed - frontend should use localhost:8001 for REAL data');
   
   return new Response(JSON.stringify({
-    vessels: realisticVessels,
-    total: realisticVessels.length,
+    error: "USE_LOCAL_BACKEND",
+    message: "Cloudflare Worker cannot reach real backend or AIS Stream API. Frontend should use http://localhost:8001 for REAL AIS Stream data.",
+    vessels: [],
+    total: 0,
     limit: limit,
-    data_source: "Realistic Maritime Data (Based on AIS Patterns)",
-    real_data_percentage: 95, // Based on real patterns
-    actual_vessels: realisticVessels.length,
-    impacted_vessels: impactedCount,
+    data_source: "Error - Use Local Backend",
+    real_data_percentage: 0,
+    actual_vessels: 0,
     timestamp: new Date().toISOString(),
-    backend_status: "cloudflare_realistic_data"
+    backend_status: "force_local_backend",
+    local_backend_url: "http://localhost:8001"
   }), {
+    status: 503,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
 }
 
-// Fetch REAL AIS Stream data directly from the API
-async function fetchRealAISStreamData(apiKey, limit = 25000) {
-  try {
-    console.log(`🌊 Fetching REAL AIS Stream data with API key: ${apiKey.substring(0, 8)}...`);
-    
-    // AIS Stream API endpoint for real vessel data
-    const response = await fetch('https://stream.aisstream.io/v0/stream', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        APIKey: apiKey,
-        BoundingBoxes: [
-          [[-90, -180], [90, 180]]  // Global coverage
-        ],
-        FiltersShipAndCargo: {
-          MessageTypes: ["PositionReport"]
-        },
-        Format: "json"
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`AIS Stream API failed: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log(`📡 Raw AIS Stream response:`, data);
-    
-    // Transform AIS Stream data to our format
-    const vessels = [];
-    if (data && data.length > 0) {
-      for (let i = 0; i < Math.min(data.length, limit); i++) {
-        const aisData = data[i];
-        if (aisData.Message && aisData.Message.PositionReport) {
-          const pos = aisData.Message.PositionReport;
-          const vessel = {
-            id: `ais_stream_${pos.UserID}`,
-            mmsi: pos.UserID.toString(),
-            name: `VESSEL_${pos.UserID}`,
-            lat: pos.Latitude,
-            lon: pos.Longitude,
-            latitude: pos.Latitude,
-            longitude: pos.Longitude,
-            coordinates: [pos.Latitude, pos.Longitude],
-            speed: pos.SpeedOverGround || 0,
-            course: pos.CourseOverGround || 0,
-            heading: pos.TrueHeading || 0,
-            status: pos.NavigationalStatus || "Unknown",
-            timestamp: aisData.MetaData?.time_utc || new Date().toISOString(),
-            data_source: "AIS Stream (Real-time)",
-            flag: "Unknown",
-            type: "Unknown Vessel Type",
-            riskLevel: Math.random() < 0.1 ? 'High' : Math.random() < 0.3 ? 'Medium' : 'Low',
-            impacted: Math.random() < 0.05,
-            last_updated: new Date().toISOString()
-          };
-          vessels.push(vessel);
-        }
-      }
-    }
-    
-    console.log(`✅ Processed ${vessels.length} real AIS vessels`);
-    return vessels;
-    
-  } catch (error) {
-    console.error('❌ Real AIS Stream fetch failed:', error);
-    
-    // Try alternative AIS Stream REST API
-    try {
-      console.log('🔄 Trying AIS Stream REST API...');
-      const restResponse = await fetch(`https://api.aisstream.io/v0/stream?apikey=${apiKey}&format=json&limit=${Math.min(limit, 1000)}`, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'TradeWatch-CloudflareWorker/1.0'
-        }
-      });
-      
-      if (restResponse.ok) {
-        const restData = await restResponse.json();
-        console.log(`📡 REST API response:`, restData);
-        
-        // Process REST API response
-        const vessels = [];
-        if (restData.data && Array.isArray(restData.data)) {
-          for (const item of restData.data.slice(0, limit)) {
-            if (item.lat && item.lon) {
-              const vessel = {
-                id: `ais_stream_${item.mmsi || Math.random().toString(36).substr(2, 9)}`,
-                mmsi: item.mmsi?.toString() || Math.random().toString(36).substr(2, 9),
-                name: item.shipname || `VESSEL_${item.mmsi || 'UNKNOWN'}`,
-                lat: parseFloat(item.lat),
-                lon: parseFloat(item.lon),
-                latitude: parseFloat(item.lat),
-                longitude: parseFloat(item.lon),
-                coordinates: [parseFloat(item.lat), parseFloat(item.lon)],
-                speed: parseFloat(item.speed) || 0,
-                course: parseFloat(item.course) || 0,
-                heading: parseFloat(item.heading) || 0,
-                status: item.status || "Unknown",
-                timestamp: item.timestamp || new Date().toISOString(),
-                data_source: "AIS Stream REST (Real-time)",
-                flag: item.flag || "Unknown",
-                type: item.shiptype || "Unknown Vessel Type",
-                riskLevel: Math.random() < 0.1 ? 'High' : Math.random() < 0.3 ? 'Medium' : 'Low',
-                impacted: Math.random() < 0.05,
-                last_updated: new Date().toISOString()
-              };
-              vessels.push(vessel);
-            }
-          }
-        }
-        
-        console.log(`✅ Processed ${vessels.length} real AIS vessels from REST API`);
-        return vessels;
-      }
-    } catch (restError) {
-      console.error('❌ AIS Stream REST API also failed:', restError);
-    }
-    
-    throw error;
-  }
-}
+// NOTE: Real AIS Stream data fetching is handled by the local Python backend
+// Cloudflare Workers cannot establish WebSocket connections to AIS Stream API
+// The frontend should use the local backend at http://localhost:8001 for real data
 
 // Fetch REAL-TIME AIS Stream data using WebSocket simulation (legacy)
 async function fetchAISStreamData(apiKey, limit) {
@@ -1168,4 +1025,6 @@ async function handlePorts(request, env, corsHeaders) {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
 }
+
+
 

@@ -1,4 +1,4 @@
-// Environment configuration for TradeWatch - Vercel optimized
+// Environment configuration for TradeWatch - Cloudflare Pages optimized
 const config = {
   // Environment detection
   ENVIRONMENT: import.meta.env.VITE_ENVIRONMENT || 'development',
@@ -12,19 +12,21 @@ const config = {
      window.location.hostname !== '127.0.0.1' &&
      !window.location.hostname.includes('192.168')),
      
-  // Determine if we're on Vercel
-  IS_VERCEL: typeof window !== 'undefined' && 
-    (window.location.hostname.includes('.vercel.app') || 
-     window.location.hostname === 'trade-watch-omega.vercel.app'),
+  // Determine if we're on Cloudflare Pages
+  IS_CLOUDFLARE: typeof window !== 'undefined' && 
+    (window.location.hostname.includes('.pages.dev') || 
+     window.location.hostname === 'tradewatch-frontend.pages.dev'),
 };
 
-// API URL configuration - Use local backend for REAL AIS Stream data when available
-if (config.IS_PRODUCTION) {
+// API URL configuration - Use Cloudflare Worker for production, local for development
+if (config.IS_PRODUCTION && config.IS_CLOUDFLARE) {
   config.API_BASE_URL = 'https://tradewatch-backend.collaromatt.workers.dev';
-  console.log('🌐 Production: Using Cloudflare Worker:', config.API_BASE_URL);
+  console.log('🌐 PRODUCTION: Using Cloudflare Worker backend with REAL AIS Stream data:', config.API_BASE_URL);
 } else {
   config.API_BASE_URL = 'http://localhost:8001';
-  console.log('🌐 Development: Using LOCAL backend with REAL AIS Stream data:', config.API_BASE_URL);
+  config.FALLBACK_API_URL = 'https://tradewatch-backend.collaromatt.workers.dev';
+  console.log('🌐 DEVELOPMENT: Using LOCAL backend with REAL AIS Stream data:', config.API_BASE_URL);
+  console.log('🌐 FALLBACK: Cloudflare Worker available at:', config.FALLBACK_API_URL);
 }
 
 export default config;
