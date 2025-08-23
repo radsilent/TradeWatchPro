@@ -15,7 +15,7 @@ const config = {
   // Determine if we're on Vercel
   IS_VERCEL: typeof window !== 'undefined' && 
     (window.location.hostname.includes('.vercel.app') || 
-     window.location.hostname.includes('your-custom-domain.com')),
+     window.location.hostname === 'trade-watch-omega.vercel.app'),
 };
 
 // API URL configuration - simple production fix
