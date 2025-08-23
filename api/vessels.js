@@ -279,23 +279,43 @@ export default async function handler(req, res) {
     // TRY TO CONNECT TO YOUR REAL BACKEND FIRST
     try {
       const backendUrl = process.env.BACKEND_URL || 'https://tradewatch-backend.loca.lt';
+      console.log('🔗 Attempting to connect to backend:', backendUrl);
+      
       const response = await fetch(`${backendUrl}/api/vessels?limit=${vesselLimit}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'TradeWatch-Vercel/1.0'
+          'User-Agent': 'TradeWatch-Vercel/1.0',
+          'Origin': 'https://trade-watch-omega.vercel.app'
         },
-        timeout: 10000
+        timeout: 15000
       });
+      
+      console.log('📡 Backend response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
         console.log('✅ SUCCESS: Using REAL backend data with', data.vessels.length, 'vessels');
+        console.log('📊 Data source:', data.data_source);
+        console.log('🎯 Real data percentage:', data.real_data_percentage);
+        console.log('📍 Sample vessel coordinates:', data.vessels[0]?.coordinates);
+        
+        // Add debug info to response
+        data.vercel_debug = {
+          backend_url: backendUrl,
+          connection_success: true,
+          timestamp: new Date().toISOString(),
+          response_time: Date.now()
+        };
+        
         res.status(200).json(data);
         return;
+      } else {
+        console.log('❌ Backend responded with error:', response.status, response.statusText);
       }
     } catch (error) {
       console.log('❌ Backend connection failed:', error.message);
+      console.log('🔍 Error details:', error);
     }
 
     // RETURN ERROR - NO MORE FAKE DATA
