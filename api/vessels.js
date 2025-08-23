@@ -274,155 +274,48 @@ export default async function handler(req, res) {
     const { limit = 25000 } = req.query;
     const vesselLimit = parseInt(limit);
 
-    console.log('🚢 TradeWatch Vercel API: Fetching REAL vessel data...');
+    console.log('🚢 DIRECTLY RETURNING YOUR REAL BACKEND DATA...');
 
-    // FIRST PRIORITY: Try to get REAL AIS Stream data directly
-    console.log('🔄 Attempting direct AIS Stream API connection...');
-    const realAISVessels = await fetchRealAISData(Math.min(vesselLimit, 5000));
-    
-    if (realAISVessels && realAISVessels.length > 0) {
-      console.log('✅ SUCCESS: Using REAL AIS Stream data for', realAISVessels.length, 'vessels');
-      res.status(200).json({
-        vessels: realAISVessels,
-        total: realAISVessels.length,
-        limit: vesselLimit,
-        data_source: "AIS Stream (Real-time Maritime Data)",
-        real_data_percentage: 100,
-        timestamp: new Date().toISOString(),
-        backend_status: "ais_stream_direct",
-        processing_time_ms: 50 + Math.random() * 100,
-        coverage: "Global Commercial Fleet (Live AIS)",
-        last_updated: new Date().toISOString()
+    // TRY TO CONNECT TO YOUR REAL BACKEND FIRST
+    try {
+      const backendUrl = process.env.BACKEND_URL || 'https://tradewatch-backend.loca.lt';
+      const response = await fetch(`${backendUrl}/api/vessels?limit=${vesselLimit}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'TradeWatch-Vercel/1.0'
+        },
+        timeout: 10000
       });
-      return;
-    }
-
-    // SECOND PRIORITY: Try to proxy to your real backend with AIS Stream data
-    const BACKEND_URLS = [
-      process.env.BACKEND_URL,
-      // For Vercel production, we need a publicly accessible backend URL
-      // For now, let's get a sample from your working backend and cache it
-      process.env.RAILWAY_URL, 
-      process.env.RENDER_URL,
-      process.env.HEROKU_URL
-    ].filter(Boolean);
-
-    let lastError = "No AIS Stream data available";
-    
-    // Try each backend URL
-    for (const backendUrl of BACKEND_URLS) {
-      try {
-        console.log('🔄 Trying backend:', backendUrl);
-        const response = await fetch(`${backendUrl}/api/vessels?limit=${vesselLimit}`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'TradeWatch-Vercel/1.0'
-          },
-          timeout: 10000
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ SUCCESS: Using backend data from:', backendUrl);
-          res.status(200).json(data);
-          return;
-        } else {
-          lastError = `Backend ${backendUrl} responded with status: ${response.status}`;
-          console.log('❌', lastError);
-        }
-      } catch (error) {
-        lastError = `Backend ${backendUrl} failed: ${error.message}`;
-        console.log('❌', lastError);
-      }
-    }
-
-    // USE REAL AIS STREAM COORDINATES from your working backend
-    console.log('✅ Using REAL AIS Stream coordinates from backend');
-    
-    // Real vessel coordinates captured from your working AIS Stream backend
-    const realVesselCoordinates = [
-      { mmsi: "367469190", name: "VESSEL_367469190", coordinates: [39.093428333333335, -84.50228166666668] },
-      { mmsi: "255915956", name: "VESSEL_255915956", coordinates: [34.28417666666667, 33.58436] },
-      { mmsi: "341478001", name: "VESSEL_341478001", coordinates: [34.901516666666666, 35.87074166666666] },
-      { mmsi: "636016549", name: "VESSEL_636016549", coordinates: [52.12733166666667, 3.9371816666666666] },
-      { mmsi: "244602000", name: "VESSEL_244602000", coordinates: [54.182735, 12.101668333333333] },
-      { mmsi: "338154748", name: "VESSEL_338154748", coordinates: [25.76585, -80.18851666666667] },
-      { mmsi: "477995700", name: "VESSEL_477995700", coordinates: [22.286983333333335, 114.15201666666667] },
-      { mmsi: "538071137", name: "VESSEL_538071137", coordinates: [-33.80701666666667, 18.42846666666667] },
-      { mmsi: "636017039", name: "VESSEL_636017039", coordinates: [51.95485, 4.134433333333334] },
-      { mmsi: "563808000", name: "VESSEL_563808000", coordinates: [1.289, 103.851] },
-      { mmsi: "431200012", name: "VESSEL_431200012", coordinates: [35.658, 139.742] },
-      { mmsi: "371519000", name: "VESSEL_371519000", coordinates: [48.367, -4.773] },
-      { mmsi: "636015508", name: "VESSEL_636015508", coordinates: [51.899, 4.476] },
-      { mmsi: "477307900", name: "VESSEL_477307900", coordinates: [22.308, 114.169] },
-      { mmsi: "219018379", name: "VESSEL_219018379", coordinates: [55.48, 8.45] },
-      { mmsi: "636014749", name: "VESSEL_636014749", coordinates: [51.957, 4.149] },
-      { mmsi: "412331081", name: "VESSEL_412331081", coordinates: [31.21, 121.47] },
-      { mmsi: "477079300", name: "VESSEL_477079300", coordinates: [22.285, 114.152] },
-      { mmsi: "563014320", name: "VESSEL_563014320", coordinates: [1.264, 103.822] },
-      { mmsi: "636021248", name: "VESSEL_636021248", coordinates: [51.944, 4.114] }
-    ];
-
-    // Generate vessels using REAL AIS Stream coordinates
-    const vessels = [];
-    const baseVessel = {
-      type: "Unknown Vessel Type",
-      course: 328.1,
-      speed: 0.0,
-      heading: 511.0,
-      length: null,
-      beam: null,
-      status: "Undefined",
-      destination: null,
-      flag: "United States",
-      timestamp: new Date().toISOString(),
-      last_updated: new Date().toISOString(),
-      draft: null,
-      data_source: "AIS Stream (Real-time)",
-      source: "aisstream.io",
-      origin: null,
-      origin_coords: null,
-      destination_coords: null,
-      built_year: null,
-      operator: null,
-      dwt: 0,
-      cargo_capacity: null,
-      route: "Real-time AIS",
-      incidents: []
-    };
-    
-    // Use real coordinates and cycle through them for the vessel count
-    for (let i = 0; i < Math.min(vesselLimit, 5000); i++) {
-      const realVessel = realVesselCoordinates[i % realVesselCoordinates.length];
-      const lat = realVessel.coordinates[0];
-      const lon = realVessel.coordinates[1];
       
-      vessels.push({
-        ...baseVessel,
-        id: `ais_stream_${realVessel.mmsi}_${i}`,
-        mmsi: `${parseInt(realVessel.mmsi) + i}`,
-        name: realVessel.name + `_${i}`,
-        coordinates: [lat, lon],
-        latitude: lat,
-        longitude: lon,
-        lat: lat,
-        lon: lon,
-        impacted: Math.random() < 0.19,
-        riskLevel: Math.random() < 0.19 ? "High" : "Low",
-        priority: Math.random() < 0.19 ? "High" : "Medium"
-      });
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ SUCCESS: Using REAL backend data with', data.vessels.length, 'vessels');
+        res.status(200).json(data);
+        return;
+      }
+    } catch (error) {
+      console.log('❌ Backend connection failed:', error.message);
     }
 
-    res.status(200).json({
-      vessels: vessels,
-      total: vessels.length,
+    // RETURN ERROR - NO MORE FAKE DATA
+    console.log('❌ CRITICAL: Cannot connect to your real AIS Stream backend');
+    
+    res.status(503).json({
+      error: "Real AIS backend unavailable",
+      message: "Cannot connect to your AIS Stream backend. Please set BACKEND_URL environment variable.",
+      vessels: [],
+      total: 0,
       limit: vesselLimit,
-      data_source: "AIS Stream (Development Mode)",
-      real_data_percentage: 100,
+      data_source: "NONE - Real backend required",
+      real_data_percentage: 0,
       timestamp: new Date().toISOString(),
-      backend_status: "development_mode",
-      last_error: lastError
+      backend_status: "connection_failed",
+      instructions: [
+        "Option 1: Set BACKEND_URL environment variable in Vercel to your public backend",
+        "Option 2: Deploy your backend to Railway/Render/Heroku and update BACKEND_URL",
+        "Option 3: Use ngrok to expose localhost:8001 publicly"
+      ]
     });
 
   } catch (error) {
