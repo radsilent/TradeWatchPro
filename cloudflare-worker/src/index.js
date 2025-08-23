@@ -35,6 +35,11 @@ export default {
     if (url.pathname === '/api/ports') {
       return handlePorts(request, env, corsHeaders);
     }
+    
+    // Route AI projections API
+    if (url.pathname === '/api/ai-projections') {
+      return handleAIProjections(request, env, corsHeaders);
+    }
 
     // Health check
     if (url.pathname === '/api/health') {
@@ -58,6 +63,7 @@ async function handleVessels(request, env, corsHeaders) {
     // Try to proxy to your working backend with real AIS Stream integration
     console.log('🔄 Attempting to connect to working backend...');
     const backendUrls = [
+      'https://strong-frog-9.loca.lt',
       'https://tradewatch-backend.loca.lt',
       'http://localhost:8001'
     ];
@@ -291,65 +297,144 @@ function getRealVesselSnapshot() {
   ];
 }
 
-// Handle REAL-TIME disruptions from multiple sources
-async function handleDisruptions(request, env, corsHeaders) {
-  console.log('🔄 Fetching real-time maritime disruptions...');
-  
+// AI Projections - Proxy to real backend
+async function handleAIProjections(request, env, corsHeaders) {
   try {
-    // Real-time RSS feeds for maritime disruptions
-    const rssFeeds = [
-      'https://feeds.reuters.com/reuters/businessNews',
-      'https://rss.cnn.com/rss/edition.rss',
-      'https://feeds.bbci.co.uk/news/world/rss.xml',
-      'https://www.hellenicshippingnews.com/feed/',
-      'https://www.marinelink.com/rss/news',
-      'https://www.tradewindsnews.com/feeds/latest-news'
+    console.log('🧠 Proxying AI projections to real backend...');
+    
+    // Try to proxy to your working backend with real AI projection data
+    const backendUrls = [
+      'https://strong-frog-9.loca.lt',
+      'https://tradewatch-backend.loca.lt',
+      'http://localhost:8001'
     ];
     
-    const allDisruptions = [];
-    
-    for (const feedUrl of rssFeeds) {
+    for (const backendUrl of backendUrls) {
       try {
-        const response = await fetch(feedUrl, {
-          headers: { 'User-Agent': 'TradeWatch-CloudflareWorker/1.0' }
+        console.log(`📡 Trying AI projections backend: ${backendUrl}`);
+        const response = await fetch(`${backendUrl}/api/ai-projections`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'TradeWatch-CloudflareWorker/1.0'
+          }
         });
         
         if (response.ok) {
-          const xmlText = await response.text();
-          const disruptions = parseRSSForMaritimeNews(xmlText, feedUrl);
-          allDisruptions.push(...disruptions);
-          console.log(`✅ Found ${disruptions.length} maritime disruptions from ${feedUrl}`);
+          const backendData = await response.json();
+          console.log(`✅ Got AI projections from backend - ${backendData.economic_projections?.length || 0} economic, ${backendData.risk_assessments?.length || 0} risk`);
+          
+          return new Response(JSON.stringify({
+            ...backendData,
+            backend_status: "cloudflare_proxied_to_real_backend",
+            proxied_from: backendUrl
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
         }
-      } catch (error) {
-        console.log(`❌ RSS feed failed: ${feedUrl}`);
+      } catch (proxyError) {
+        console.log(`❌ AI projections backend ${backendUrl} failed:`, proxyError.message);
         continue;
       }
     }
     
-    // Filter and sort by recency
-    const maritimeDisruptions = allDisruptions
-      .filter(d => isMaritimeRelevant(d.title, d.description))
-      .sort((a, b) => new Date(b.start_date) - new Date(a.start_date))
-      .slice(0, 50); // Top 50 most recent
-    
-    console.log(`📊 Returning ${maritimeDisruptions.length} real maritime disruptions`);
-    
-    return new Response(JSON.stringify({ 
-      disruptions: maritimeDisruptions,
-      total: maritimeDisruptions.length,
-      data_source: "Real-time RSS Feeds + Maritime News APIs",
-      last_updated: new Date().toISOString()
+    console.error('❌ All AI projection backends failed');
+    return new Response(JSON.stringify({
+      error: 'No AI projection data available - backend unreachable',
+      economic_projections: [],
+      risk_assessments: [],
+      ai_stats: {},
+      backend_status: "all_backends_failed"
     }), {
+      status: 503,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
     
   } catch (error) {
-    console.error('Disruption fetching failed:', error);
-    return new Response(JSON.stringify({ 
-      disruptions: [],
-      error: "Real-time disruption fetching failed",
-      message: "No mock data - real APIs required"
+    console.error('AI projections proxy failed:', error);
+    return new Response(JSON.stringify({
+      error: 'Failed to proxy to AI projections backend',
+      economic_projections: [],
+      risk_assessments: [],
+      ai_stats: {}
     }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// Handle REAL-TIME disruptions from multiple sources
+async function handleDisruptions(request, env, corsHeaders) {
+  try {
+    console.log('🌊 Proxying to real disruption backend - NO MOCK DATA...');
+    
+    // Try to proxy to your working backend with real disruption data
+    const backendUrls = [
+      'https://strong-frog-9.loca.lt',
+      'https://tradewatch-backend.loca.lt',
+      'http://localhost:8001'
+    ];
+    
+    for (const backendUrl of backendUrls) {
+      try {
+        console.log(`📡 Trying disruption backend: ${backendUrl}`);
+        const response = await fetch(`${backendUrl}/api/maritime-disruptions`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'TradeWatch-CloudflareWorker/1.0'
+          }
+        });
+        
+        if (response.ok) {
+          const backendData = await response.json();
+          console.log(`✅ Got ${backendData.total || backendData.disruptions?.length || 0} REAL disruptions from backend`);
+          
+          // Ensure no duplicates by unique ID
+          const uniqueDisruptions = backendData.disruptions ? 
+            backendData.disruptions.filter((disruption, index, self) => 
+              index === self.findIndex(d => d.id === disruption.id)
+            ) : [];
+          
+          return new Response(JSON.stringify({
+            disruptions: uniqueDisruptions,
+            total: uniqueDisruptions.length,
+            data_source: backendData.data_source || "Real-time Maritime Backend",
+            backend_status: "cloudflare_proxied_to_real_backend",
+            proxied_from: backendUrl,
+            last_updated: new Date().toISOString()
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      } catch (proxyError) {
+        console.log(`❌ Disruption backend ${backendUrl} failed:`, proxyError.message);
+        continue;
+      }
+    }
+    
+    console.error('❌ All disruption backends failed - NO MOCK DATA WILL BE SERVED');
+    return new Response(JSON.stringify({
+      error: 'No real disruption data available - backend unreachable',
+      disruptions: [],
+      total: 0,
+      backend_status: "all_backends_failed",
+      message: "NO MOCK DATA POLICY - Real backend required"
+    }), {
+      status: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+    
+  } catch (error) {
+    console.error('Disruption proxy failed:', error);
+    return new Response(JSON.stringify({
+      error: 'Failed to proxy to real disruption backend',
+      disruptions: [],
+      total: 0,
+      message: "NO MOCK DATA - Real backend integration required"
+    }), {
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }

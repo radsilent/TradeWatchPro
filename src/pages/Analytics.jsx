@@ -276,34 +276,7 @@ export default function AnalyticsPage() {
           <p className="text-slate-400">Comprehensive analysis of global trade disruptions and port performance</p>
         </div>
 
-        {/* Confidence Methodology Card */}
-        <Card className="bg-slate-800/30 backdrop-blur-sm border-slate-700/50 mb-6">
-          <CardHeader>
-            <CardTitle className="text-slate-100 text-lg">Confidence Scoring Methodology</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <h4 className="font-semibold text-slate-200 mb-2">Source Credibility Weights:</h4>
-                <ul className="space-y-1 text-slate-400">
-                  <li>• Reuters/Bloomberg: 90-95%</li>
-                  <li>• BBC/CNN/Major News: 80-90%</li>
-                  <li>• Industry Publications: 70-80%</li>
-                  <li>• Regional News: 50-70%</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold text-slate-200 mb-2">Validation Bonuses:</h4>
-                <ul className="space-y-1 text-slate-400">
-                  <li>• Multiple Source Confirmation: +10-20%</li>
-                  <li>• Specific Details (dates/locations): +10%</li>
-                  <li>• Historical Precedent: +15%</li>
-                  <li>• Geopolitical Context Match: +10%</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

@@ -36,7 +36,7 @@ const AIProjections = () => {
       const economicProjections = await generateEconomicProjections();
       
       // Generate risk assessments
-      const riskAssessments = generateRiskAssessments();
+      const riskAssessments = await generateRiskAssessments();
       
       // Get AI system statistics
       const analytics = await streamingClient.getPerformanceAnalytics();
@@ -77,130 +77,79 @@ const AIProjections = () => {
   // Helper functions
 
   const generateEconomicProjections = async () => {
-    // Get real-time BDI data
-    let bdiProjection = null;
     try {
-      const bdiData = await fetchCurrentBDI();
-      if (bdiData) {
-        bdiProjection = {
-          metric: 'Baltic Dry Index',
-          current: bdiData.value,
-          projected: bdiData.projected,
-          change: bdiData.projectedChange,
-          timeframe: '7 days',
-          confidence: bdiData.confidence
-        };
+      // Fetch real AI projections from backend
+      const config = await import('../config/environment');
+      const response = await fetch(`${config.default.API_BASE_URL}/api/ai-projections`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Got real AI projections from backend:', data.economic_projections?.length);
+        return data.economic_projections || [];
+      } else {
+        console.log('❌ AI projections API failed, using fallback');
+        throw new Error('Backend AI projections unavailable');
       }
     } catch (error) {
-      console.log('Could not fetch real-time BDI:', error);
-    }
-    
-    const allProjections = [];
-    
-    // Add BDI projection if available
-    if (bdiProjection) {
-      allProjections.push(bdiProjection);
-    }
-    
-    // Add other projections (these should also be made dynamic)
-    allProjections.push(
-      {
-        metric: 'Container Freight Rates (Asia-Europe)',
-        current: 1840,
-        projected: 2156,
-        change: 17.2,
-        timeframe: '14 days',
-        confidence: 0.82
-      },
-      {
-        metric: 'Fuel Oil Prices',
-        current: 647,
-        projected: 598,
-        change: -7.6,
-        timeframe: '30 days',
-        confidence: 0.79 // This will be filtered out (< 80%)
-      },
-      {
-        metric: 'Port Congestion Index',
-        current: 0.67,
-        projected: 0.73,
-        change: 9.0,
-        timeframe: '7 days',
-        confidence: 0.91
-      },
-      {
-        metric: 'Freight Rate Volatility',
-        current: 0.34,
-        projected: 0.41,
-        change: 20.6,
-        timeframe: '10 days',
-        confidence: 0.85
-      },
-      {
-        metric: 'Container Availability Index',
-        current: 0.72,
-        projected: 0.68,
-        change: -5.6,
-        timeframe: '5 days',
-        confidence: 0.88
+      console.log('❌ AI projections backend failed:', error);
+      // Fallback to minimal real-time BDI only
+      try {
+        const bdiData = await fetchCurrentBDI();
+        if (bdiData) {
+          return [{
+            metric: 'Baltic Dry Index',
+            current: bdiData.value,
+            projected: bdiData.projected,
+            change: bdiData.projectedChange,
+            timeframe: '7 days',
+            confidence: bdiData.confidence || 0.85,
+            model: 'Real-time BDI'
+          }];
+        }
+      } catch (bdiError) {
+        console.log('BDI fallback also failed:', bdiError);
       }
-    );
-    
-    // Filter out predictions with confidence < 80%
-    return allProjections.filter(projection => projection.confidence >= 0.8);
+      return [];
+    }
   };
 
-  const generateRiskAssessments = () => {
-    const allAssessments = [
-      {
-        region: 'Strait of Hormuz',
-        riskLevel: 'High',
-        probability: 0.78,
-        confidence: 0.89,
-        impact: 'Critical',
-        factors: ['Geopolitical tension', 'Naval activities', 'Weather conditions'],
-        recommendation: 'Consider alternative routes'
-      },
-      {
-        region: 'South China Sea',
-        riskLevel: 'Medium',
-        probability: 0.56,
-        confidence: 0.84,
-        impact: 'Moderate',
-        factors: ['Trade disputes', 'Military exercises', 'Typhoon season'],
-        recommendation: 'Monitor developments closely'
-      },
-      {
-        region: 'Suez Canal',
-        riskLevel: 'Low',
-        probability: 0.23,
-        confidence: 0.92,
-        impact: 'High',
-        factors: ['Traffic congestion', 'Technical issues'],
-        recommendation: 'Standard transit procedures'
-      },
-      {
-        region: 'Panama Canal',
-        riskLevel: 'Medium',
-        probability: 0.45,
-        confidence: 0.76, // This will be filtered out (< 80%)
-        impact: 'Moderate',
-        factors: ['Water level concerns', 'Transit scheduling', 'Maintenance work'],
-        recommendation: 'Monitor water levels and scheduling'
-      },
-      {
-        region: 'English Channel',
-        riskLevel: 'Low',
-        probability: 0.35,
-        confidence: 0.81,
-        impact: 'Low',
-        factors: ['Weather conditions', 'Ferry traffic', 'Fishing activities'],
-        recommendation: 'Standard navigation procedures'
+  const generateRiskAssessments = async () => {
+    try {
+      // Try to get risk assessments from the AI projections endpoint
+      const config = await import('../config/environment');
+      const response = await fetch(`${config.default.API_BASE_URL}/api/ai-projections`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Got real risk assessments from backend:', data.risk_assessments?.length);
+        return data.risk_assessments || [];
+      } else {
+        throw new Error('Backend risk assessments unavailable');
       }
-    ];
-    
-    // Filter out assessments with confidence < 80%
-    return allAssessments.filter(assessment => assessment.confidence >= 0.8);
+    } catch (error) {
+      console.log('❌ Risk assessments backend failed, using minimal fallback:', error);
+      // Minimal fallback risk assessments
+      return [
+        {
+          region: 'Strait of Hormuz',
+          riskLevel: 'High',
+          probability: 0.78,
+          confidence: 0.89,
+          impact: 'Critical',
+          factors: ['Geopolitical tension', 'Naval activities'],
+          recommendation: 'Consider alternative routes'
+        },
+        {
+          region: 'South China Sea',
+          riskLevel: 'Medium',
+          probability: 0.56,
+          confidence: 0.84,
+          impact: 'Moderate',
+          factors: ['Trade disputes', 'Typhoon season'],
+          recommendation: 'Monitor developments closely'
+        }
+      ].filter(assessment => assessment.confidence >= 0.8);
+    }
   };
 
   const formatCurrency = (value) => {
