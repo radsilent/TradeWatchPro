@@ -1,8 +1,5 @@
-// Environment configuration for TradeWatch
+// Environment configuration for TradeWatch - Vercel optimized
 export const config = {
-  // API Base URL - defaults to localhost for development
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001',
-  
   // Environment detection
   ENVIRONMENT: import.meta.env.VITE_ENVIRONMENT || 'development',
   
@@ -14,14 +11,21 @@ export const config = {
     (window.location.hostname !== 'localhost' && 
      window.location.hostname !== '127.0.0.1' &&
      !window.location.hostname.includes('192.168')),
+     
+  // Determine if we're on Vercel
+  IS_VERCEL: typeof window !== 'undefined' && 
+    (window.location.hostname.includes('.vercel.app') || 
+     window.location.hostname.includes('your-custom-domain.com')),
 };
 
-// Production API URL detection
+// API URL configuration - simple production fix
 if (config.IS_PRODUCTION) {
-  // In production, try to use the same domain but with /api prefix
-  config.API_BASE_URL = `${window.location.origin}/api`;
-  console.log('🌐 Production mode detected, using API URL:', config.API_BASE_URL);
+  // In production, use relative paths to Vercel API functions
+  config.API_BASE_URL = '';
+  console.log('🌐 Production mode detected, using relative API paths');
 } else {
+  // Development mode - use localhost backend
+  config.API_BASE_URL = 'http://localhost:8001';
   console.log('🛠️ Development mode, using API URL:', config.API_BASE_URL);
 }
 
