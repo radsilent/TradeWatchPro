@@ -4,67 +4,11 @@ const AIS_STREAM_API_KEY = process.env.AIS_STREAM_API_KEY || "7334566177a1515215
 // Add cache control headers to prevent stale data
 export const revalidate = 0;
 
-// Real AIS Stream WebSocket integration for Vercel
+// Real AIS Stream WebSocket integration for Vercel - NO FAKE DATA
 async function fetchRealAISData(limit) {
-  try {
-    // Try to fetch from AIS Stream API using HTTP endpoint first
-    const response = await fetch('https://api.aisstream.io/v0/last_known_positions', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${AIS_STREAM_API_KEY}`,
-        'Accept': 'application/json'
-      },
-      timeout: 8000
-    });
-
-    if (response.ok) {
-      const aisData = await response.json();
-      console.log('✅ Fetched real AIS data:', aisData.length, 'vessels');
-      
-      // Transform AIS data to our format
-      const realVessels = aisData.slice(0, limit).map((vessel, index) => ({
-        id: `ais_vessel_${vessel.mmsi || index}`,
-        mmsi: vessel.mmsi?.toString() || `${200000000 + index}`,
-        imo: vessel.imo || (7000000 + index),
-        name: vessel.name || `UNKNOWN VESSEL ${index}`,
-        type: vessel.vessel_type || 'Container Ship',
-        coordinates: [vessel.latitude || vessel.lat, vessel.longitude || vessel.lon],
-        latitude: vessel.latitude || vessel.lat,
-        longitude: vessel.longitude || vessel.lon,
-        lat: vessel.latitude || vessel.lat,
-        lon: vessel.longitude || vessel.lon,
-        course: vessel.course || 0,
-        speed: vessel.speed || 0,
-        heading: vessel.heading || vessel.course || 0,
-        length: vessel.length || 200,
-        beam: vessel.beam || vessel.width || 30,
-        status: vessel.status || 'Under way using engine',
-        destination: vessel.destination || 'Unknown',
-        flag: vessel.flag || 'Unknown',
-        timestamp: new Date().toISOString(),
-        last_updated: new Date().toISOString(),
-        draft: vessel.draft || 10,
-        data_source: 'AIS Stream (Real-time)',
-        source: 'aisstream.io',
-        origin: 'Real AIS',
-        built_year: 2000 + Math.floor(Math.random() * 24),
-        operator: vessel.operator || 'Unknown',
-        dwt: vessel.dwt || Math.floor(50000 + Math.random() * 150000),
-        cargo_capacity: Math.floor((vessel.dwt || 100000) * 0.8),
-        route: 'Real Maritime Route',
-        impacted: Math.random() < 0.2,
-        riskLevel: Math.random() < 0.2 ? 'High' : 'Low',
-        priority: Math.random() < 0.2 ? 'High' : 'Medium',
-        incidents: []
-      }));
-
-      return realVessels;
-    }
-  } catch (error) {
-    console.log('❌ AIS Stream API failed:', error.message);
-  }
-  
-  return null;
+  // AIS Stream only provides WebSocket API, not HTTP REST
+  // We need to connect to the running backend that has WebSocket integration
+  return null; // Let it fall through to backend connection
 }
 
 // Generate realistic vessel data for Vercel deployment
@@ -325,6 +269,7 @@ export default async function handler(req, res) {
     // SECOND PRIORITY: Try multiple backend options  
     const BACKEND_URLS = [
       process.env.BACKEND_URL,
+      'http://localhost:8001', // Your local backend with real AIS Stream
       process.env.RAILWAY_URL, 
       process.env.RENDER_URL,
       process.env.HEROKU_URL
@@ -360,26 +305,22 @@ export default async function handler(req, res) {
       }
     }
 
-    // FALLBACK: Only use generated data as last resort
-    console.log('⚠️ WARNING: All real data sources failed, using fallback data');
-    console.log('💡 This should NOT happen in production - check AIS Stream API or backend connectivity');
+    // NO FAKE DATA - Return error if real data unavailable
+    console.log('❌ CRITICAL: All real data sources failed - NO MOCK DATA POLICY');
+    console.log('💡 Backend must be running with AIS Stream integration');
     
-    // Generate realistic vessels for Vercel deployment
-    const vessels = generateRealisticVessels(Math.min(vesselLimit, 1000)); // Reduced limit to encourage real data usage
-    
-    res.status(200).json({
-      vessels: vessels,
-      total: vessels.length,
+    res.status(503).json({
+      error: "Real vessel data unavailable",
+      message: "No mock data served per policy - AIS Stream backend required",
+      vessels: [],
+      total: 0,
       limit: vesselLimit,
-      data_source: "⚠️ FALLBACK: Generated Data (Real AIS Stream Failed)",
+      data_source: "NONE - Real data required",
       real_data_percentage: 0,
       timestamp: new Date().toISOString(),
-      backend_status: "fallback_mode",
-      processing_time_ms: 150 + Math.random() * 100,
-      coverage: "Simulated Fleet (Check AIS Stream API)",
-      last_updated: new Date().toISOString(),
-      warning: "Using fallback data - AIS Stream API connection failed",
-      last_error: lastError
+      backend_status: "all_sources_failed",
+      last_error: lastError,
+      instructions: "Start backend server: cd ai-processing && python3 enhanced_real_data_api.py"
     });
 
   } catch (error) {
