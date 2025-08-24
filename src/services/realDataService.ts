@@ -3,7 +3,7 @@
  * Provides real AIS vessel data, tariff data, and maritime disruptions
  */
 
-const API_BASE_URL = 'https://tradewatch-backend.collaromatt.workers.dev';
+const API_BASE_URL = 'http://localhost:8001';
 
 export interface Vessel {
   id: string;
@@ -141,22 +141,34 @@ export interface Port {
 }
 
 class RealDataService {
-  private async fetchWithTimeout(url: string, timeout = 10000): Promise<Response> {
+  private async fetchWithTimeout(url: string, timeout = 15000): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     
     try {
+      console.log(`🔄 Fetching from: ${url}`);
       const response = await fetch(url, {
         signal: controller.signal,
+        method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json',
         },
+        mode: 'cors',
+        cache: 'no-cache',
       });
       clearTimeout(timeoutId);
+      console.log(`✅ Response status: ${response.status} ${response.statusText}`);
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
+      console.error(`❌ Fetch error for ${url}:`, error);
+      
+      // More specific error messages
+      if (error.name === 'AbortError') {
+        throw new Error(`Request timeout after ${timeout/1000}s - Backend may be slow or unresponsive`);
+      } else if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+        throw new Error(`Network error - Cannot connect to backend at ${API_BASE_URL}. Is the server running?`);
+      }
       throw error;
     }
   }
@@ -164,10 +176,11 @@ class RealDataService {
   async getVessels(limit: number = 1000): Promise<VesselResponse> {
     try {
       console.log(`🚢 Fetching ${limit} real vessels from TradeWatch API...`);
+      
       const response = await this.fetchWithTimeout(`${API_BASE_URL}/api/vessels?limit=${limit}`);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
       }
       
       const data = await response.json();
@@ -176,6 +189,30 @@ class RealDataService {
     } catch (error) {
       console.error('❌ Error fetching vessels:', error);
       throw new Error(`Failed to fetch vessel data: ${error.message}`);
+    }
+  }
+
+  // Test connection to backend
+  private async testConnection(): Promise<boolean> {
+    try {
+      console.log('🔍 Testing backend connection...');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch(`${API_BASE_URL}/health`, {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-cache',
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      const isHealthy = response.ok;
+      console.log(`${isHealthy ? '✅' : '❌'} Backend health check: ${response.status}`);
+      return isHealthy;
+    } catch (error) {
+      console.error('❌ Backend connection test failed:', error);
+      return false;
     }
   }
 

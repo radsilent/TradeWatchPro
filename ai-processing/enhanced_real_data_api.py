@@ -37,6 +37,15 @@ except ImportError as e:
     logger.warning(f"⚠️ AIS Stream integration not available: {e}")
     AIS_STREAM_AVAILABLE = False
 
+# Import Data Cache
+try:
+    from services.data_cache import data_cache
+    CACHE_AVAILABLE = True
+    logger.info("✅ Data cache initialized successfully")
+except ImportError as e:
+    logger.warning(f"⚠️ Data cache not available: {e}")
+    CACHE_AVAILABLE = False
+
 # Import ML Prediction Service
 try:
     from services.ml_prediction_service import (
@@ -109,6 +118,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Async caching functions
+async def cache_vessels_async(vessels: List[Dict[str, Any]]):
+    """Cache vessels in background"""
+    try:
+        if CACHE_AVAILABLE:
+            data_cache.cache_vessels(vessels)
+    except Exception as e:
+        logger.warning(f"Background vessel caching failed: {e}")
+
+async def cache_disruptions_async(disruptions: List[Dict[str, Any]]):
+    """Cache disruptions in background"""
+    try:
+        if CACHE_AVAILABLE:
+            data_cache.cache_disruptions(disruptions)
+    except Exception as e:
+        logger.warning(f"Background disruption caching failed: {e}")
+
+async def cache_tariffs_async(tariffs: List[Dict[str, Any]]):
+    """Cache tariffs in background"""
+    try:
+        if CACHE_AVAILABLE:
+            data_cache.cache_tariffs(tariffs)
+    except Exception as e:
+        logger.warning(f"Background tariff caching failed: {e}")
 
 # Enhanced vessel generation for thousands of vessels
 VESSEL_TYPES_ENHANCED = [
@@ -609,26 +643,43 @@ async def root():
     }
 
 @app.get("/api/vessels")
-async def get_comprehensive_vessels(limit: int = 25000):
-    """Get real vessel data from AIS Stream and other sources"""
+async def get_comprehensive_vessels(limit: int = 500):
+    """Get real vessel data from cache first, then live sources"""
     try:
-        logger.info(f"Fetching {limit} real vessel records from AIS sources...")
+        logger.info(f"Fetching {limit} vessel records...")
         
         vessels = []
         data_sources = []
         
-        # First try AIS Stream (real-time data) - prioritize for high capacity
-        if AIS_STREAM_AVAILABLE:
+        # First try cache for fast response
+        if CACHE_AVAILABLE:
             try:
-                # Request a significant portion from AIS Stream for real data
-                ais_target = min(limit // 3, 10000)  # Up to 10k from AIS Stream
-                ais_vessels = await get_real_aisstream_vessels(ais_target)
-                if ais_vessels:
-                    vessels.extend(ais_vessels)
-                    data_sources.append("AIS Stream (Real-time)")
-                    logger.info(f"✅ Fetched {len(ais_vessels)} vessels from AIS Stream")
+                cached_vessels = data_cache.get_cached_vessels(limit, max_age_hours=1)
+                if cached_vessels:
+                    vessels.extend(cached_vessels)
+                    data_sources.append("Cache (Recent)")
+                    logger.info(f"✅ Retrieved {len(cached_vessels)} vessels from cache")
             except Exception as e:
-                logger.warning(f"AIS Stream fetch failed: {e}")
+                logger.warning(f"Cache retrieval failed: {e}")
+        
+        # If cache is empty or insufficient, fetch fresh data
+        if len(vessels) < min(limit, 50):  # Ensure we have at least some fresh data
+            if AIS_STREAM_AVAILABLE:
+                try:
+                    # Request fresh data from AIS Stream (reduced amount for speed)
+                    ais_target = min(50, limit - len(vessels))  # Small amount for speed
+                    ais_vessels = await get_real_aisstream_vessels(ais_target)
+                    if ais_vessels:
+                        vessels.extend(ais_vessels)
+                        data_sources.append("AIS Stream (Real-time)")
+                        logger.info(f"✅ Fetched {len(ais_vessels)} fresh vessels from AIS Stream")
+                        
+                        # Cache the fresh data
+                        if CACHE_AVAILABLE:
+                            asyncio.create_task(cache_vessels_async(ais_vessels))
+                            
+                except Exception as e:
+                    logger.warning(f"AIS Stream fetch failed: {e}")
         
         # Supplement with other AIS sources if needed
         if len(vessels) < limit:
@@ -801,18 +852,49 @@ async def get_real_tariffs_endpoint(limit: int = 500):
 
 @app.get("/api/maritime-disruptions")
 async def get_comprehensive_disruptions():
-    """Get comprehensive maritime disruption records from real-time APIs only"""
+    """Get comprehensive maritime disruption records from cache first, then real-time APIs"""
     try:
-        # Import the real-time disruption fetcher
-        from services.real_time_disruption_fetcher import get_real_time_disruptions
+        logger.info("Fetching maritime disruptions...")
         
-        logger.info("Fetching real-time maritime disruptions from external APIs...")
+        disruptions = []
+        data_sources = []
         
-        # Get disruptions from real-time sources (request 250 for comprehensive coverage with quality filtering)
-        disruptions = await get_real_time_disruptions(limit=250)
+        # First try cache for fast response
+        if CACHE_AVAILABLE:
+            try:
+                cached_disruptions = data_cache.get_cached_disruptions(limit=100, max_age_hours=2)
+                if cached_disruptions:
+                    disruptions.extend(cached_disruptions)
+                    data_sources.append("Cache (Recent)")
+                    logger.info(f"✅ Retrieved {len(cached_disruptions)} disruptions from cache")
+            except Exception as e:
+                logger.warning(f"Cache retrieval failed: {e}")
+        
+        # If cache is empty or insufficient, fetch fresh data (but limit to prevent timeout)
+        if len(disruptions) < 20:  # Ensure we have at least some fresh data
+            try:
+                # Import the real-time disruption fetcher
+                from services.real_time_disruption_fetcher import get_real_time_disruptions
+                
+                logger.info("Fetching fresh disruptions from real-time APIs...")
+                
+                # Get disruptions from real-time sources (reduced limit for speed)
+                fresh_disruptions = await get_real_time_disruptions(limit=50)  # Reduced from 250
+                
+                if fresh_disruptions:
+                    disruptions.extend(fresh_disruptions)
+                    data_sources.append("Real-time maritime APIs")
+                    logger.info(f"✅ Fetched {len(fresh_disruptions)} fresh disruptions")
+                    
+                    # Cache the fresh data in background
+                    if CACHE_AVAILABLE:
+                        asyncio.create_task(cache_disruptions_async(fresh_disruptions))
+                        
+            except Exception as e:
+                logger.warning(f"Fresh disruptions fetch failed: {e}")
         
         if not disruptions:
-            logger.warning("No disruptions found from real-time APIs")
+            logger.warning("No disruptions found from cache or real-time APIs")
             return {
                 "disruptions": [],
                 "total": 0,
@@ -821,18 +903,14 @@ async def get_comprehensive_disruptions():
                 "last_updated": datetime.now().isoformat()
             }
         
-        logger.info(f"Successfully fetched {len(disruptions)} disruptions from real-time APIs")
-        
-        # Return comprehensive disruptions with current/future categorization
-        current_count = len([d for d in disruptions if d.get('event_type') == 'current'])
-        future_count = len([d for d in disruptions if d.get('event_type') == 'prediction'])
+        # Return successful response
+        logger.info(f"✅ Returning {len(disruptions)} disruptions from: {', '.join(data_sources)}")
         
         return {
-            "disruptions": disruptions,  # Return all quality-filtered disruptions
+            "disruptions": disruptions,
             "total": len(disruptions),
-            "current_events": current_count,
-            "future_predictions": future_count,
-            "data_source": "Real-time maritime APIs with predictive analysis",
+            "data_source": " + ".join(data_sources) if data_sources else "Real-time maritime APIs with predictive analysis",
+            "status": "Active disruptions found",
             "last_updated": datetime.now().isoformat()
         }
         

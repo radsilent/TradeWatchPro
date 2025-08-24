@@ -240,8 +240,8 @@ class AISStreamIntegration:
                 "FilterMessageTypes": []  # No message type filter initially
             }
             
-            # Connect and collect data for a longer time to get more vessels
-            timeout_duration = 30  # 30 seconds to collect real-time data
+            # Connect and collect data quickly for web responsiveness
+            timeout_duration = 5  # 5 seconds to collect real-time data
             start_time = datetime.now()
             message_count = 0
             
