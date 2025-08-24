@@ -158,7 +158,7 @@ function Analytics() {
 
                 {/* Live Vessel Map */}
           <div className="bg-card rounded-lg border p-3 sm:p-6">
-            <SimpleVesselMap vessels={vessels} height="400px" />
+            <SimpleVesselMap vessels={vessels} disruptions={disruptions} height="400px" />
           </div>
 
       {/* Two Column Layout for Disruptions and Tariffs */}

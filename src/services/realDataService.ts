@@ -3,7 +3,10 @@
  * Provides real AIS vessel data, tariff data, and maritime disruptions
  */
 
-const API_BASE_URL = 'http://localhost:8001';
+// Detect environment and use appropriate API endpoint
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:8001'  // Local development
+  : 'https://tradewatch-backend.collaromatt.workers.dev';  // Production
 
 export interface Vessel {
   id: string;

@@ -696,10 +696,8 @@ async def get_comprehensive_vessels(limit: int = 500):
         
         # If still not enough data, use enhanced generation as last resort
         if len(vessels) < (limit * 0.1):  # If we have less than 10% of requested vessels
-            logger.info("Insufficient real data, falling back to enhanced generation...")
-            generated_vessels = generate_comprehensive_vessel_dataset(limit)
-            vessels.extend(generated_vessels)
-            data_sources.append("Enhanced Generation (Supplement)")
+            logger.warning("Insufficient real data - NO FAKE DATA will be generated")
+            # NO FAKE DATA GENERATION
         
         # Get current disruptions once for all vessels (performance optimization)
         current_disruptions = []
@@ -777,13 +775,8 @@ async def get_comprehensive_vessels(limit: int = 500):
                 
             validated_vessels.append(vessel)
         
-        # If we filtered out too many vessels and don't have enough, generate more
-        if len(validated_vessels) < limit * 0.8:  # If we have less than 80% of requested vessels
-            needed = limit - len(validated_vessels)
-            logger.info(f"Only {len(validated_vessels)} valid vessels after filtering, generating {needed} more...")
-            additional_vessels = generate_comprehensive_vessel_dataset(needed)
-            validated_vessels.extend(additional_vessels)
-            data_sources.append("Enhanced Generation (Coordinate Supplement)")
+        # NO FAKE DATA - Only return real vessels
+        logger.info(f"Returning {len(validated_vessels)} REAL vessels (no fake data generated)")
         
         return {
             "vessels": validated_vessels[:limit],  # Ensure we don't exceed the limit
@@ -796,14 +789,13 @@ async def get_comprehensive_vessels(limit: int = 500):
         
     except Exception as e:
         logger.error(f"Error fetching real vessel data: {e}")
-        # Final fallback to enhanced generation
-        logger.info("Complete fallback to enhanced vessel generation...")
-        vessels = generate_comprehensive_vessel_dataset(limit)
+        # NO FAKE DATA FALLBACK
+        logger.error("All real data sources failed - returning empty result (NO FAKE DATA)")
         return {
-            "vessels": vessels,
-            "total": len(vessels),
+            "vessels": [],
+            "total": 0,
             "limit": limit,
-            "data_source": "Enhanced Generation (All real sources failed)",
+            "data_source": "REAL DATA ONLY - All sources failed",
             "real_data_percentage": 0,
             "timestamp": datetime.now().isoformat()
         }
