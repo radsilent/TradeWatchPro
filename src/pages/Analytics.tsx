@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import VesselMap from '../components/maps/VesselMap';
+import SimpleVesselMap from '../components/maps/SimpleVesselMap';
 import { realDataService, Vessel, Disruption, Tariff } from '../services/realDataService';
 
 function Analytics() {
@@ -156,13 +156,10 @@ function Analytics() {
         </div>
       </div>
 
-      {/* Live Vessel Map */}
-      <div className="bg-card rounded-lg border p-3 sm:p-6">
-        <h2 className="text-lg sm:text-xl font-semibold mb-4">Live Vessel Tracking & Disruptions</h2>
-        <div className="h-64 sm:h-96">
-          <VesselMap vessels={vessels} height="100%" />
-        </div>
-      </div>
+                {/* Live Vessel Map */}
+          <div className="bg-card rounded-lg border p-3 sm:p-6">
+            <SimpleVesselMap vessels={vessels} height="400px" />
+          </div>
 
       {/* Two Column Layout for Disruptions and Tariffs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
