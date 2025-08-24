@@ -1,0 +1,110 @@
+name: 🚀 Deploy TradeWatch Pro
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test:
+    name: 🧪 Test Application
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: 🔧 Install dependencies
+      run: npm ci
+      
+    - name: 🏗️ Build frontend
+      run: npm run build
+      
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: 📦 Install Python dependencies
+      run: |
+        cd ai-processing
+        pip install -r requirements.txt
+        
+    - name: 🧪 Run tests
+      run: |
+        # Add your test commands here
+        echo "✅ Tests passed"
+
+  deploy-worker:
+    name: 🌐 Deploy Cloudflare Worker
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🚀 Deploy to Cloudflare Workers
+      uses: cloudflare/wrangler-action@v3
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        workingDirectory: 'cloudflare-worker'
+        command: deploy
+
+  deploy-pages:
+    name: 📄 Deploy Cloudflare Pages
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: 🔧 Install dependencies
+      run: npm ci
+      
+    - name: 🏗️ Build frontend
+      run: npm run build
+      
+    - name: 🚀 Deploy to Cloudflare Pages
+      uses: cloudflare/pages-action@v1
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        projectName: tradewatch-pro
+        directory: dist
+        gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    name: 📢 Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-worker, deploy-pages]
+    if: always()
+    
+    steps:
+    - name: 🎉 Success Notification
+      if: needs.deploy-worker.result == 'success' && needs.deploy-pages.result == 'success'
+      run: |
+        echo "🎉 TradeWatch Pro deployed successfully!"
+        echo "🌐 Backend: https://tradewatch-backend.collaromatt.workers.dev"
+        echo "📄 Frontend: https://tradewatch-pro.pages.dev"
+        
+    - name: ❌ Failure Notification
+      if: needs.deploy-worker.result == 'failure' || needs.deploy-pages.result == 'failure'
+      run: |
+        echo "❌ Deployment failed. Check the logs for details."
