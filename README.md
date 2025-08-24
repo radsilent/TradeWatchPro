@@ -139,7 +139,7 @@ npm run build
 ```
 
 **Live URLs:**
-- **Backend API:** https://tradewatch-backend.collaromatt.workers.dev
+- **Backend API:** https://tradewatch-backend.XXXX.workers.dev
 - **Frontend:** https://tradewatch-pro.pages.dev (after Pages deployment)
 
 ## 📡 API Endpoints
@@ -228,7 +228,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - **Issues:** [GitHub Issues](https://github.com/yourusername/TradeWatchPro/issues)
-- **Email:** support@tradewatchpro.com
+
 - **Documentation:** [Wiki](https://github.com/yourusername/TradeWatchPro/wiki)
 
 ---
