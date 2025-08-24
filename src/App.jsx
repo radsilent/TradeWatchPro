@@ -1,237 +1,62 @@
-/**
- * TradeWatch - Global Trade Intelligence Platform
- * © 2025 VectorStream Systems - Patent Pending
- * All Rights Reserved
- */
-
-import React, { useState, useEffect } from 'react'
+import React from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { ThemeProvider } from 'next-themes'
 import './App.css'
 
-function App() {
-  const [mode, setMode] = useState('production'); // 'production' or 'diagnostic'
-  const [step, setStep] = useState(1);
-  const [ToasterComponent, setToasterComponent] = useState(null);
-  const [PagesComponent, setPagesComponent] = useState(null);
-  const [error, setError] = useState(null);
-  
-  // Try to load the full app directly
-  useEffect(() => {
-    if (mode === 'production') {
-      const loadFullApp = async () => {
-        try {
-          console.log('Loading Toaster component...');
-          const toasterModule = await import("@/components/ui/toaster");
-          console.log('Toaster loaded successfully');
-          
-          console.log('Loading Pages component...');
-          const pagesModule = await import("@/pages/index.jsx");
-          console.log('Pages loaded successfully');
-          
-          setToasterComponent(() => toasterModule.Toaster);
-          setPagesComponent(() => pagesModule.default);
-          setError(null);
-          console.log('Full app loaded successfully!');
-        } catch (err) {
-          console.error('Full app failed to load:', err);
-          setError(err);
-          // Don't automatically switch to diagnostic - let user see the error
-        }
-      };
-      loadFullApp();
-    }
-  }, [mode]);
-  
-  // Load components when step changes - hooks must be at top level (for diagnostic mode)
-  useEffect(() => {
-    if (mode === 'diagnostic' && step === 2 && !ToasterComponent) {
-      const loadToaster = async () => {
-        try {
-          const module = await import("@/components/ui/toaster");
-          setToasterComponent(() => module.Toaster);
-          setError(null);
-        } catch (err) {
-          setError(err);
-        }
-      };
-      loadToaster();
-    }
-  }, [mode, step, ToasterComponent]);
+// Import pages
+import Analytics from './pages/Analytics'
+import FleetManagement from './pages/FleetManagement'
+import Alerts from './pages/Alerts'
+import Reports from './pages/Reports'
+import Settings from './pages/Settings'
+import Pricing from './pages/Pricing'
 
-  useEffect(() => {
-    if (mode === 'diagnostic' && step === 3 && !PagesComponent) {
-      const loadPages = async () => {
-        try {
-          const module = await import("@/pages/index.jsx");
-          setPagesComponent(() => module.default);
-          setError(null);
-        } catch (err) {
-          setError(err);
-        }
-      };
-      loadPages();
-    }
-  }, [mode, step, PagesComponent]);
-
-  // Production mode - try to load full app
-  if (mode === 'production') {
-    if (error) {
-      return (
-        <div style={{ padding: '20px', backgroundColor: '#fee', color: 'red' }}>
-          <h1>App Loading Error</h1>
-          <p><strong>Error:</strong> {error.message}</p>
-          <p>Switching to diagnostic mode...</p>
-          <div style={{ marginTop: '15px' }}>
-            <button 
-              onClick={() => setMode('diagnostic')}
-              style={{ padding: '10px 20px', fontSize: '16px', marginRight: '10px' }}
-            >
-              Enter Diagnostic Mode
-            </button>
-            <button 
-              onClick={() => { setError(null); setMode('production'); }}
-              style={{ padding: '10px 20px', fontSize: '16px' }}
-            >
-              Retry Full App
-            </button>
+// Basic layout component
+const Layout = ({ children }) => {
+  return (
+    <div className="min-h-screen bg-background">
+      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-2xl font-bold text-primary">TradeWatch Pro</h1>
+              <nav className="hidden md:flex space-x-6">
+                <a href="/analytics" className="text-sm font-medium hover:text-primary">Analytics</a>
+                <a href="/fleet" className="text-sm font-medium hover:text-primary">Fleet</a>
+                <a href="/alerts" className="text-sm font-medium hover:text-primary">Alerts</a>
+                <a href="/reports" className="text-sm font-medium hover:text-primary">Reports</a>
+                <a href="/settings" className="text-sm font-medium hover:text-primary">Settings</a>
+                <a href="/pricing" className="text-sm font-medium hover:text-primary">Pricing</a>
+              </nav>
+            </div>
           </div>
         </div>
-      );
-    }
-
-    if (!PagesComponent || !ToasterComponent) {
-      return (
-        <div style={{ padding: '20px', backgroundColor: '#1e293b', color: 'white', textAlign: 'center' }}>
-          <h1>TradeWatch</h1>
-          <p>Loading maritime intelligence platform...</p>
-          <div style={{ marginTop: '20px' }}>
-            <div style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>...</div>
-          </div>
-        </div>
-      );
-    }
-
-    // Full app loaded successfully
-    return (
-      <div style={{ position: 'relative' }}>
-        <div style={{ 
-          position: 'fixed', 
-          top: '10px', 
-          right: '10px', 
-          zIndex: 9999,
-          fontSize: '12px'
-        }}>
-          <button 
-            onClick={() => setMode('diagnostic')}
-            style={{ 
-              padding: '5px 10px', 
-              fontSize: '11px',
-              backgroundColor: '#374151',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px'
-            }}
-          >
-            Debug
-          </button>
-        </div>
-        <PagesComponent />
-        <ToasterComponent />
-      </div>
-    );
-  }
-  
-  // Render based on current step
-  if (step === 1) {
-    return (
-      <div style={{ padding: '20px', backgroundColor: '#1e293b', minHeight: '100vh', color: 'white' }}>
-        <h1>TradeWatch Loading Diagnostics</h1>
-        <p>Step 1: Basic React + CSS OK</p>
-        <button 
-          onClick={() => setStep(2)}
-          style={{ padding: '10px', fontSize: '16px', marginTop: '10px' }}
-        >
-          Load UI Components →
-        </button>
-      </div>
-    );
-  }
-  
-  if (step === 2) {
-    if (error) {
-      return (
-        <div style={{ padding: '20px', backgroundColor: '#fee', color: 'red' }}>
-          <h1>UI Components Error</h1>
-          <p>{error.message}</p>
-          <pre style={{ fontSize: '12px', overflow: 'auto' }}>{error.stack}</pre>
-          <button onClick={() => { setStep(1); setError(null); }}>← Back</button>
-        </div>
-      );
-    }
-
-    if (!ToasterComponent) {
-      return (
-        <div style={{ padding: '20px', backgroundColor: '#1e293b', minHeight: '100vh', color: 'white' }}>
-          <h1>Loading UI Components...</h1>
-          <p>Please wait...</p>
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ padding: '20px', backgroundColor: '#1e293b', minHeight: '100vh', color: 'white' }}>
-        <h1>TradeWatch Loading Diagnostics</h1>
-        <p>Step 1: Basic React + CSS OK</p>
-        <p>Step 2: UI Components OK</p>
-        <button 
-          onClick={() => setStep(3)}
-          style={{ padding: '10px', fontSize: '16px', marginTop: '10px' }}
-        >
-          Load Routing →
-        </button>
-        <ToasterComponent />
-      </div>
-    );
-  }
-  
-  if (step === 3) {
-    if (error) {
-      return (
-        <div style={{ padding: '20px', backgroundColor: '#fee', color: 'red' }}>
-          <h1>Pages/Routing Error</h1>
-          <p>{error.message}</p>
-          <pre style={{ fontSize: '12px', overflow: 'auto' }}>{error.stack}</pre>
-          <button onClick={() => { setStep(2); setError(null); }}>← Back to UI Test</button>
-        </div>
-      );
-    }
-
-    if (!PagesComponent || !ToasterComponent) {
-      return (
-        <div style={{ padding: '20px', backgroundColor: '#1e293b', minHeight: '100vh', color: 'white' }}>
-          <h1>Loading Full App...</h1>
-          <p>Please wait...</p>
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ backgroundColor: '#1e293b', minHeight: '100vh' }}>
-        <div style={{ padding: '20px', color: 'white', borderBottom: '1px solid #334155' }}>
-          <h2>TradeWatch Fully Loaded</h2>
-          <button 
-            onClick={() => setStep(2)}
-            style={{ padding: '5px 10px', fontSize: '14px' }}
-          >
-            ← Diagnostics Mode
-          </button>
-        </div>
-        <PagesComponent />
-        <ToasterComponent />
-      </div>
-    );
-  }
-
-  return null;
+      </nav>
+      <main className="container mx-auto px-4 py-6">
+        {children}
+      </main>
+    </div>
+  )
 }
 
-export default App 
+function App() {
+  return (
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+      <Router>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Navigate to="/analytics" replace />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/fleet" element={<FleetManagement />} />
+            <Route path="/alerts" element={<Alerts />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/pricing" element={<Pricing />} />
+          </Routes>
+        </Layout>
+      </Router>
+    </ThemeProvider>
+  )
+}
+
+export default App
