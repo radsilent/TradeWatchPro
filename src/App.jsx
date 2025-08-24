@@ -9,6 +9,7 @@ import Alerts from './pages/Alerts'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Pricing from './pages/Pricing'
+import BusinessModel from './pages/BusinessModel'
 
 // Mobile responsive layout component
 const Layout = ({ children }) => {
@@ -28,7 +29,7 @@ const Layout = ({ children }) => {
                 <a href="/fleet" className="text-sm font-medium hover:text-primary transition-colors">Fleet</a>
                 <a href="/alerts" className="text-sm font-medium hover:text-primary transition-colors">Alerts</a>
                 <a href="/reports" className="text-sm font-medium hover:text-primary transition-colors">Reports</a>
-                <a href="/settings" className="text-sm font-medium hover:text-primary transition-colors">Settings</a>
+                <a href="/business" className="text-sm font-medium hover:text-primary transition-colors">Business</a>
                 <a href="/pricing" className="text-sm font-medium hover:text-primary transition-colors">Pricing</a>
               </nav>
             </div>
@@ -64,7 +65,7 @@ const Layout = ({ children }) => {
                 <a href="/fleet" className="text-sm font-medium hover:text-primary transition-colors py-2">🚢 Fleet</a>
                 <a href="/alerts" className="text-sm font-medium hover:text-primary transition-colors py-2">🚨 Alerts</a>
                 <a href="/reports" className="text-sm font-medium hover:text-primary transition-colors py-2">📋 Reports</a>
-                <a href="/settings" className="text-sm font-medium hover:text-primary transition-colors py-2">⚙️ Settings</a>
+                <a href="/business" className="text-sm font-medium hover:text-primary transition-colors py-2">💼 Business</a>
                 <a href="/pricing" className="text-sm font-medium hover:text-primary transition-colors py-2">💰 Pricing</a>
                 <div className="flex items-center space-x-2 py-2 border-t mt-2 pt-4">
                   <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
@@ -92,8 +93,9 @@ function App() {
           <Route path="/fleet" element={<FleetManagement />} />
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/reports" element={<Reports />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/business" element={<BusinessModel />} />
           <Route path="/pricing" element={<Pricing />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>
     </Router>

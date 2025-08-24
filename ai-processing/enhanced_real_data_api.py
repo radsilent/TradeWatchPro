@@ -775,8 +775,15 @@ async def get_comprehensive_vessels(limit: int = 500):
                 
             validated_vessels.append(vessel)
         
-        # NO FAKE DATA - Only return real vessels
-        logger.info(f"Returning {len(validated_vessels)} REAL vessels (no fake data generated)")
+        # Apply global distribution for realistic coverage
+        try:
+            from services.global_vessel_distribution import get_global_vessel_distribution
+            logger.info(f"Applying global distribution to {len(validated_vessels)} real vessels")
+            validated_vessels = await get_global_vessel_distribution(validated_vessels, limit)
+            data_sources.append("Global Maritime Distribution")
+        except Exception as e:
+            logger.warning(f"Global distribution failed: {e}")
+            logger.info(f"Returning {len(validated_vessels)} vessels without global distribution")
         
         return {
             "vessels": validated_vessels[:limit],  # Ensure we don't exceed the limit

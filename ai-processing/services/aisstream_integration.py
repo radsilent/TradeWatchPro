@@ -233,11 +233,18 @@ class AISStreamIntegration:
             subscription = {
                 "APIKey": self.api_key,
                 "BoundingBoxes": [
-                    # Global coverage with some key shipping areas
-                    [[-90, -180], [90, 180]]  # Global
+                    # Focus on major shipping areas with good AIS coverage
+                    [[49.0, -10.0], [62.0, 30.0]],    # North Sea/Baltic
+                    [[30.0, -130.0], [50.0, -110.0]], # US West Coast
+                    [[25.0, -100.0], [35.0, -80.0]],  # US Gulf/East Coast
+                    [[-5.0, 95.0], [10.0, 110.0]],    # Singapore/Malacca
+                    [[20.0, 110.0], [35.0, 125.0]],   # South China Sea
+                    [[30.0, 120.0], [45.0, 145.0]],   # East China Sea/Japan
+                    [[10.0, 50.0], [30.0, 70.0]],     # Arabian Sea/Persian Gulf
+                    [[10.0, 30.0], [35.0, 45.0]]      # Red Sea/Suez
                 ],
-                "FiltersShipMMSI": [],  # No MMSI filter initially
-                "FilterMessageTypes": []  # No message type filter initially
+                "FiltersShipMMSI": [],
+                "FilterMessageTypes": ["PositionReport"]
             }
             
             # Connect and collect data quickly for web responsiveness
