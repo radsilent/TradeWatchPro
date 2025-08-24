@@ -193,12 +193,6 @@ curl http://localhost:8001/api/vessels?limit=5
 - **Reuters RSS:** Maritime news (Fair Use)
 - **Government APIs:** USTR, WTO, EU TARIC (Public)
 
-## 💰 Business Model
-
-### Subscription Tiers
-- **Basic:** $99/month - 1,000 vessels, basic alerts
-- **Professional:** $299/month - 10,000 vessels, AI insights
-- **Enterprise:** $999/month - Unlimited, custom integrations
 
 ### ROI Features
 - Route optimization savings
