@@ -281,12 +281,9 @@ class RealAISIntegration:
                 vessels.extend(gfw_vessels)
                 logger.info(f"Fetched {len(gfw_vessels)} vessels from Global Fishing Watch")
             
-            # If no real data available, use enhanced simulation
+            # NO FAKE DATA - Only return real vessels
             if len(vessels) < limit:
-                needed = limit - len(vessels)
-                simulated_vessels = await self._generate_realistic_vessels(needed)
-                vessels.extend(simulated_vessels)
-                logger.info(f"Generated {len(simulated_vessels)} realistic vessel positions")
+                logger.warning(f"Only {len(vessels)} real vessels available, no fake data will be generated")
             
             # Update cache
             self._vessel_cache = {
