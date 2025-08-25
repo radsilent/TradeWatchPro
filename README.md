@@ -43,7 +43,7 @@
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   React Frontend │    │  FastAPI Backend │    │ External APIs   │
+│  React Frontend │    │  FastAPI Backend │    │ External APIs   │
 │                 │    │                  │    │                 │
 │ • Analytics     │◄──►│ • AIS Stream     │◄──►│ • AIS Stream    │
 │ • Fleet Mgmt    │    │ • Tariff APIs    │    │ • World Bank    │
@@ -223,7 +223,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Issues:** [GitHub Issues](https://github.com/yourusername/TradeWatchPro/issues)
 
-- **Documentation:** [Wiki](https://github.com/yourusername/TradeWatchPro/wiki)
 
 ---
 
